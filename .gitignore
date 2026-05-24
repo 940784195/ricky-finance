@@ -73,9 +73,9 @@ dist/
 *.exe
 *.app
 
-# Database files
-*.db
-*.sqlite
+# Database files - 注释掉以便保留数据
+# *.db
+# *.sqlite
 
 # Temp files
 tmp/
