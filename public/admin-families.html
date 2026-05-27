@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>资产管家 - 所有家庭</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <style>
+        .families-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 16px;
+        }
+        .family-card {
+            padding: 20px;
+        }
+        .family-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .family-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        .family-info h3 {
+            font-size: 18px;
+            margin-bottom: 4px;
+        }
+        .family-info p {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        .family-stats {
+            display: flex;
+            gap: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+        .stat-item {
+            flex: 1;
+        }
+        .stat-item .label {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .stat-item .value {
+            font-size: 18px;
+            font-weight: 700;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h1>🏠 资产管家</h1>
+            <p>家庭资产管理平台</p>
+        </div>
+        <nav class="nav" id="nav">
+            <a href="/dashboard.html" class="nav-item" data-page="dashboard">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                    <polyline points="9,22 9,12 15,12 15,22"/>
+                </svg>
+                仪表盘
+            </a>
+            <a href="/records.html" class="nav-item" data-page="records">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                资产记录
+            </a>
+            <a href="/admin-families.html" class="nav-item active" data-page="admin-families">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <line x1="3" y1="9" x2="21" y2="9"/>
+                    <line x1="9" y1="21" x2="9" y2="9"/>
+                </svg>
+                所有家庭
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="nav-item" id="logoutBtn" style="color: var(--danger);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+                    <polyline points="16,17 21,12 16,7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+                退出登录
+            </div>
+        </div>
+    </aside>
+
+    <main class="main">
+        <header class="header">
+            <div class="header-title">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <button class="mobile-menu-btn" id="menuBtn">☰</button>
+                    <div>
+                        <h2>所有家庭</h2>
+                        <p>查看系统中的所有家庭</p>
+                    </div>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar">?</div>
+                    <div>
+                        <div style="font-size: 14px; font-weight: 600;" id="userName">用户</div>
+                        <div style="font-size: 12px; color: var(--text-muted);" id="userRole">角色</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <section class="content">
+            <div class="families-grid" id="familiesGrid">
+                <div class="card empty-state">加载中...</div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/utils.js"></script>
+<script>
+(function() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        window.location.href = '/login.html';
+        return;
+    }
+
+    const user = API.getCurrentUser();
+    if (user?.role !== 'admin') {
+        window.location.href = '/dashboard.html';
+        return;
+    }
+
+    let families = [];
+
+    const sidebar = document.getElementById('sidebar');
+    const menuBtn = document.getElementById('menuBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const userAvatar = document.getElementById('userAvatar');
+    const userName = document.getElementById('userName');
+    const userRole = document.getElementById('userRole');
+    const familiesGrid = document.getElementById('familiesGrid');
+
+    init();
+
+    async function init() {
+        setupUserInfo();
+        setupEventListeners();
+        await loadFamilies();
+    }
+
+    function setupUserInfo() {
+        userName.textContent = user?.name || user?.username || '用户';
+        userRole.textContent = Utils.getRoleLabel(user?.role);
+        userAvatar.textContent = Utils.getShortName(user?.name || user?.username);
+    }
+
+    function setupEventListeners() {
+        menuBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
+        logoutBtn.addEventListener('click', () => {
+            if (confirm('确定要退出登录吗？')) API.logout();
+        });
+    }
+
+    async function loadFamilies() {
+        try {
+            const res = await API.getFamilies();
+            if (res.success) {
+                families = res.data;
+                await loadFamilyStats();
+                renderFamilies();
+            }
+        } catch (e) {
+            console.error('Failed to load families:', e);
+            familiesGrid.innerHTML = '<div class="card empty-state">加载失败，请刷新页面重试</div>';
+        }
+    }
+
+    async function loadFamilyStats() {
+        // 为每个家庭加载统计数据
+        for (let family of families) {
+            try {
+                // 我们通过 stats API 来获取，但因为现在是管理员角色
+                // 我们需要直接查询数据库或者在后端添加一个端点
+                // 暂时我们先跳过这个，只显示基本信息
+                family.member_count = 0;
+                family.total_value = 0;
+                family.record_count = 0;
+            } catch (e) {
+                family.member_count = 0;
+                family.total_value = 0;
+                family.record_count = 0;
+            }
+        }
+    }
+
+    function renderFamilies() {
+        if (!families.length) {
+            familiesGrid.innerHTML = '<div class="card empty-state">暂无家庭数据</div>';
+            return;
+        }
+
+        familiesGrid.innerHTML = families.map(f => `
+            <div class="card family-card">
+                <div class="family-header">
+                    <div class="family-icon">🏠</div>
+                    <div class="family-info">
+                        <h3>${f.family_name}</h3>
+                        <p>户主: ${f.head_name || '未设置'}</p>
+                    </div>
+                </div>
+                <div class="family-stats">
+                    <div class="stat-item">
+                        <div class="label">创建时间</div>
+                        <div class="value" style="font-size: 14px;">${f.created_at ? Utils.formatDate(f.created_at.split(' ')[0]) : '-'}</div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>资产管家 - 资产类型</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <style>
+        .types-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 16px;
+        }
+        .type-card {
+            padding: 20px;
+        }
+        .type-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 12px;
+        }
+        .type-dot {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+        }
+        .type-info h3 {
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+        .type-info p {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        .type-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            background: var(--bg-hover);
+        }
+        .type-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .type-actions button {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .edit-type-btn {
+            background: rgba(139, 92, 246, 0.15);
+            color: var(--accent);
+        }
+        .delete-type-btn {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h1>🏠 资产管家</h1>
+            <p>家庭资产管理平台</p>
+        </div>
+        <nav class="nav" id="nav">
+            <a href="/dashboard.html" class="nav-item" data-page="dashboard">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                    <polyline points="9,22 9,12 15,12 15,22"/>
+                </svg>
+                仪表盘
+            </a>
+            <a href="/records.html" class="nav-item" data-page="records">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                资产记录
+            </a>
+            <a href="/members.html" class="nav-item" data-page="members">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 010 7.75"/>
+                </svg>
+                家庭成员
+            </a>
+            <a href="/asset-types.html" class="nav-item active" data-page="asset-types">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                资产类型
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="nav-item" id="logoutBtn" style="color: var(--danger);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+                    <polyline points="16,17 21,12 16,7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+                退出登录
+            </div>
+        </div>
+    </aside>
+
+    <main class="main">
+        <header class="header">
+            <div class="header-title">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <button class="mobile-menu-btn" id="menuBtn">☰</button>
+                    <div>
+                        <h2>资产类型</h2>
+                        <p>管理自定义资产类型</p>
+                    </div>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-primary" id="addTypeBtn">➕ 添加类型</button>
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar">?</div>
+                    <div>
+                        <div style="font-size: 14px; font-weight: 600;" id="userName">用户</div>
+                        <div style="font-size: 12px; color: var(--text-muted);" id="userRole">角色</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <section class="content">
+            <div class="types-grid" id="typesGrid">
+                <div class="card empty-state">加载中...</div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<div class="modal-overlay" id="typeModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="typeModalTitle">添加资产类型</h3>
+            <button class="modal-close" id="closeTypeModal">×</button>
+        </div>
+        <div class="modal-body">
+            <form id="typeForm">
+                <input type="hidden" id="typeId">
+                <div class="form-group">
+                    <label>类型标识</label>
+                    <input type="text" id="typeValue" class="form-control" required placeholder="如：crypto、gold，英文标识">
+                    <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">唯一标识，创建后不可修改</p>
+                </div>
+                <div class="form-group">
+                    <label>显示名称</label>
+                    <input type="text" id="typeDisplayName" class="form-control" required placeholder="如：加密货币、黄金">
+                </div>
+                <div class="form-group">
+                    <label>颜色</label>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <input type="color" id="typeColor" class="form-control" value="#8b5cf6" style="max-width: 80px; padding: 4px; height: 48px;">
+                        <input type="text" id="typeColorText" class="form-control" placeholder="#8b5cf6" value="#8b5cf6">
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="cancelTypeBtn">取消</button>
+            <button type="submit" class="btn btn-primary" form="typeForm">保存</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="deleteTypeModal">
+    <div class="modal" style="max-width: 420px;">
+        <div class="modal-header">
+            <h3>删除类型</h3>
+            <button class="modal-close" id="closeDeleteTypeModal">×</button>
+        </div>
+        <div class="modal-body">
+            <p>确定要删除这个资产类型吗？如果有记录正在使用此类型，则无法删除。</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" id="cancelDeleteTypeBtn">取消</button>
+            <button class="btn btn-danger" id="confirmDeleteTypeBtn">删除</button>
+        </div>
+    </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/utils.js"></script>
+<script>
+(function() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        window.location.href = '/login.html';
+        return;
+    }
+
+    const user = API.getCurrentUser();
+    if (user?.role !== 'head') {
+        window.location.href = '/dashboard.html';
+        return;
+    }
+
+    let types = [];
+    let editingId = null;
+    let deletingId = null;
+
+    const sidebar = document.getElementById('sidebar');
+    const menuBtn = document.getElementById('menuBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const userAvatar = document.getElementById('userAvatar');
+    const userName = document.getElementById('userName');
+    const userRole = document.getElementById('userRole');
+    const typesGrid = document.getElementById('typesGrid');
+    const addTypeBtn = document.getElementById('addTypeBtn');
+    const typeModal = document.getElementById('typeModal');
+    const deleteTypeModal = document.getElementById('deleteTypeModal');
+    const closeTypeModal = document.getElementById('closeTypeModal');
+    const cancelTypeBtn = document.getElementById('cancelTypeBtn');
+    const closeDeleteTypeModal = document.getElementById('closeDeleteTypeModal');
+    const cancelDeleteTypeBtn = document.getElementById('cancelDeleteTypeBtn');
+    const confirmDeleteTypeBtn = document.getElementById('confirmDeleteTypeBtn');
+    const typeForm = document.getElementById('typeForm');
+    const typeModalTitle = document.getElementById('typeModalTitle');
+    const typeColor = document.getElementById('typeColor');
+    const typeColorText = document.getElementById('typeColorText');
+    const typeValue = document.getElementById('typeValue');
+
+    init();
+
+    async function init() {
+        setupUserInfo();
+        setupEventListeners();
+        await loadTypes();
+    }
+
+    function setupUserInfo() {
+        userName.textContent = user?.name || user?.username || '用户';
+        userRole.textContent = Utils.getRoleLabel(user?.role);
+        userAvatar.textContent = Utils.getShortName(user?.name || user?.username);
+    }
+
+    function setupEventListeners() {
+        menuBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
+        logoutBtn.addEventListener('click', () => {
+            if (confirm('确定要退出登录吗？')) API.logout();
+        });
+
+        typeColor.addEventListener('input', e => {
+            typeColorText.value = e.target.value;
+        });
+        typeColorText.addEventListener('input', e => {
+            if (/^#[0-9a-fA-F]{6}$/.test(e.target.value)) {
+                typeColor.value = e.target.value;
+            }
+        });
+
+        addTypeBtn.addEventListener('click', openAddModal);
+        closeTypeModal.addEventListener('click', closeModal);
+        cancelTypeBtn.addEventListener('click', closeModal);
+        typeModal.addEventListener('click', e => {
+            if (e.target === typeModal) closeModal();
+        });
+
+        closeDeleteTypeModal.addEventListener('click', closeDeleteModal);
+        cancelDeleteTypeBtn.addEventListener('click', closeDeleteModal);
+        deleteTypeModal.addEventListener('click', e => {
+            if (e.target === deleteTypeModal) closeDeleteModal();
+        });
+
+        confirmDeleteTypeBtn.addEventListener('click', doDelete);
+        typeForm.addEventListener('submit', handleSubmit);
+    }
+
+    async function loadTypes() {
+        try {
+            const res = await API.getAssetTypes();
+            if (res.success) {
+                types = res.data;
+                renderTypes();
+            }
+        } catch (e) {
+            console.error('Failed to load types:', e);
+            typesGrid.innerHTML = '<div class="card empty-state">加载失败，请刷新页面重试</div>';
+        }
+    }
+
+    function renderTypes() {
+        if (!types.length) {
+            typesGrid.innerHTML = '<div class="card empty-state">暂无类型，点击上方按钮添加</div>';
+            return;
+        }
+
+        typesGrid.innerHTML = types.map(t => `
+            <div class="card type-card">
+                <div class="type-header">
+                    <div class="type-dot" style="background: ${t.color};"></div>
+                    <div class="type-info">
+                        <h3>${t.display_name}</h3>
+                        <p>${t.type_value}</p>
+                    </div>
+                </div>
+                <span class="type-badge">${t.is_custom ? '自定义' : '系统默认'}</span>
+                ${t.is_custom ? `
+                    <div class="type-actions">
+                        <button class="edit-type-btn" onclick="openEditModal(${t.id})">编辑</button>
+                        <button class="delete-type-btn" onclick="confirmDeleteType(${t.id})">删除</button>
+                    </div>
+                ` : ''}
+            </div>
+        `).join('');
+    }
+
+    window.openEditModal = openEditModal;
+    function openEditModal(id) {
+        editingId = id;
+        const type = types.find(t => t.id === id);
+        if (!type) return;
+
+        typeModalTitle.textContent = '编辑资产类型';
+        document.getElementById('typeId').value = type.id;
+        document.getElementById('typeDisplayName').value = type.display_name;
+        document.getElementById('typeColor').value = type.color;
+        document.getElementById('typeColorText').value = type.color;
+        typeValue.value = type.type_value;
+        typeValue.disabled = true;
+
+        typeModal.classList.add('active');
+    }
+
+    function openAddModal() {
+        editingId = null;
+        typeModalTitle.textContent = '添加资产类型';
+        typeForm.reset();
+        typeColor.value = '#8b5cf6';
+        typeColorText.value = '#8b5cf6';
+        typeValue.disabled = false;
+        typeModal.classList.add('active');
+    }
+
+    function closeModal() {
+        typeModal.classList.remove('active');
+        editingId = null;
+    }
+
+    window.confirmDeleteType = confirmDeleteType;
+    function confirmDeleteType(id) {
+        deletingId = id;
+        deleteTypeModal.classList.add('active');
+    }
+
+    function closeDeleteModal() {
+        deleteTypeModal.classList.remove('active');
+        deletingId = null;
+    }
+
+    async function doDelete() {
+        if (!deletingId) return;
+
+        try {
+            const res = await API.deleteAssetType(deletingId);
+            if (res.success) {
+                Utils.toast('删除成功');
+                closeDeleteModal();
+                await loadTypes();
+            } else {
+                Utils.toast(res.message || '删除失败', 'error');
+            }
+        } catch (e) {
+            Utils.toast('网络错误，请稍后重试', 'error');
+        }
+    }
+
+    async function handleSubmit(e) {
+        e.preventDefault();
+
+        const data = {
+            typeValue: document.getElementById('typeValue').value,
+            displayName: document.getElementById('typeDisplayName').value,
+            color: document.getElementById('typeColor').value
+        };
+
+        try {
+            let res;
+            if (editingId) {
+                res = await API.updateAssetType(editingId, {
+                    displayName: data.displayName,
+                    color: data.color
+                });
+            } else {
+                res = await API.createAssetType(data);
+            }
+
+            if (res.success) {
+                Utils.toast(editingId ? '更新成功' : '添加成功');
+                closeModal();
+                await loadTypes();
+            } else {
+                Utils.toast(res.message || '操作失败', 'error');
+            }
+        } catch (e) {
+            Utils.toast('网络错误，请稍后重试', 'error');
+        }
+    }
+})();
+</script>
+</body>
+</html>

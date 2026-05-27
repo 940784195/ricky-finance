@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>资产管家 - 家庭成员</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <style>
+        .members-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+        }
+        .member-card {
+            padding: 20px;
+        }
+        .member-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .member-avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 20px;
+        }
+        .member-info h3 {
+            font-size: 18px;
+            margin-bottom: 4px;
+        }
+        .member-info p {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        .member-stats {
+            display: flex;
+            gap: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+        .stat-item {
+            flex: 1;
+        }
+        .stat-item .label {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .stat-item .value {
+            font-size: 18px;
+            font-weight: 700;
+        }
+        .member-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .member-actions button {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .edit-member-btn {
+            background: rgba(139, 92, 246, 0.15);
+            color: var(--accent);
+        }
+        .delete-member-btn {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h1>🏠 资产管家</h1>
+            <p>家庭资产管理平台</p>
+        </div>
+        <nav class="nav" id="nav">
+            <a href="/dashboard.html" class="nav-item" data-page="dashboard">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                    <polyline points="9,22 9,12 15,12 15,22"/>
+                </svg>
+                仪表盘
+            </a>
+            <a href="/records.html" class="nav-item" data-page="records">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                资产记录
+            </a>
+            <a href="/members.html" class="nav-item active" data-page="members">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 010 7.75"/>
+                </svg>
+                家庭成员
+            </a>
+            <a href="/asset-types.html" class="nav-item" data-page="asset-types">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                资产类型
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="nav-item" id="logoutBtn" style="color: var(--danger);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+                    <polyline points="16,17 21,12 16,7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+                退出登录
+            </div>
+        </div>
+    </aside>
+
+    <main class="main">
+        <header class="header">
+            <div class="header-title">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <button class="mobile-menu-btn" id="menuBtn">☰</button>
+                    <div>
+                        <h2>家庭成员</h2>
+                        <p>管理家庭所有成员</p>
+                    </div>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-primary" id="addMemberBtn">➕ 添加成员</button>
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar">?</div>
+                    <div>
+                        <div style="font-size: 14px; font-weight: 600;" id="userName">用户</div>
+                        <div style="font-size: 12px; color: var(--text-muted);" id="userRole">角色</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <section class="content">
+            <div class="members-grid" id="membersGrid">
+                <div class="card empty-state">加载中...</div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<div class="modal-overlay" id="memberModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 id="memberModalTitle">添加成员</h3>
+            <button class="modal-close" id="closeMemberModal">×</button>
+        </div>
+        <div class="modal-body">
+            <form id="memberForm">
+                <input type="hidden" id="memberId">
+                <div class="form-group">
+                    <label>成员姓名</label>
+                    <input type="text" id="memberName" class="form-control" required placeholder="请输入姓名">
+                </div>
+                <div class="form-group">
+                    <label>简称（可选）</label>
+                    <input type="text" id="memberShortName" class="form-control" placeholder="用于头像显示，默认取姓名首字">
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="cancelMemberBtn">取消</button>
+            <button type="submit" class="btn btn-primary" form="memberForm">保存</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="deleteMemberModal">
+    <div class="modal" style="max-width: 420px;">
+        <div class="modal-header">
+            <h3>删除成员</h3>
+            <button class="modal-close" id="closeDeleteMemberModal">×</button>
+        </div>
+        <div class="modal-body">
+            <p>确定要删除这位成员吗？此操作将同时删除该成员的所有资产记录，无法撤销。</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" id="cancelDeleteMemberBtn">取消</button>
+            <button class="btn btn-danger" id="confirmDeleteMemberBtn">删除</button>
+        </div>
+    </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/utils.js"></script>
+<script>
+(function() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        window.location.href = '/login.html';
+        return;
+    }
+
+    const user = API.getCurrentUser();
+    if (user?.role !== 'head') {
+        window.location.href = '/dashboard.html';
+        return;
+    }
+
+    let members = [];
+    let editingId = null;
+    let deletingId = null;
+
+    const sidebar = document.getElementById('sidebar');
+    const menuBtn = document.getElementById('menuBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const userAvatar = document.getElementById('userAvatar');
+    const userName = document.getElementById('userName');
+    const userRole = document.getElementById('userRole');
+    const membersGrid = document.getElementById('membersGrid');
+    const addMemberBtn = document.getElementById('addMemberBtn');
+    const memberModal = document.getElementById('memberModal');
+    const deleteMemberModal = document.getElementById('deleteMemberModal');
+    const closeMemberModal = document.getElementById('closeMemberModal');
+    const cancelMemberBtn = document.getElementById('cancelMemberBtn');
+    const closeDeleteMemberModal = document.getElementById('closeDeleteMemberModal');
+    const cancelDeleteMemberBtn = document.getElementById('cancelDeleteMemberBtn');
+    const confirmDeleteMemberBtn = document.getElementById('confirmDeleteMemberBtn');
+    const memberForm = document.getElementById('memberForm');
+    const memberModalTitle = document.getElementById('memberModalTitle');
+
+    init();
+
+    async function init() {
+        setupUserInfo();
+        setupEventListeners();
+        await loadMembers();
+    }
+
+    function setupUserInfo() {
+        userName.textContent = user?.name || user?.username || '用户';
+        userRole.textContent = Utils.getRoleLabel(user?.role);
+        userAvatar.textContent = Utils.getShortName(user?.name || user?.username);
+    }
+
+    function setupEventListeners() {
+        menuBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
+        logoutBtn.addEventListener('click', () => {
+            if (confirm('确定要退出登录吗？')) API.logout();
+        });
+
+        addMemberBtn.addEventListener('click', openAddModal);
+        closeMemberModal.addEventListener('click', closeModal);
+        cancelMemberBtn.addEventListener('click', closeModal);
+        memberModal.addEventListener('click', e => {
+            if (e.target === memberModal) closeModal();
+        });
+
+        closeDeleteMemberModal.addEventListener('click', closeDeleteModal);
+        cancelDeleteMemberBtn.addEventListener('click', closeDeleteModal);
+        deleteMemberModal.addEventListener('click', e => {
+            if (e.target === deleteMemberModal) closeDeleteModal();
+        });
+
+        confirmDeleteMemberBtn.addEventListener('click', doDelete);
+        memberForm.addEventListener('submit', handleSubmit);
+    }
+
+    async function loadMembers() {
+        try {
+            const res = await API.getMembers();
+            if (res.success) {
+                members = res.data;
+                renderMembers();
+            }
+        } catch (e) {
+            console.error('Failed to load members:', e);
+            membersGrid.innerHTML = '<div class="card empty-state">加载失败，请刷新页面重试</div>';
+        }
+    }
+
+    function renderMembers() {
+        if (!members.length) {
+            membersGrid.innerHTML = '<div class="card empty-state">暂无成员，点击上方按钮添加</div>';
+            return;
+        }
+
+        membersGrid.innerHTML = members.map(m => `
+            <div class="card member-card">
+                <div class="member-header">
+                    <div class="member-avatar">${Utils.getShortName(m.name)}</div>
+                    <div class="member-info">
+                        <h3>${m.name}</h3>
+                        <p>${Utils.getRoleLabel(m.role)}</p>
+                    </div>
+                </div>
+                <div class="member-stats">
+                    <div class="stat-item">
+                        <div class="label">总资产</div>
+                        <div class="value">${Utils.formatMoney(m.total_value || 0)}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="label">记录数</div>
+                        <div class="value">${m.record_count || 0}</div>
+                    </div>
+                </div>
+                ${m.role !== 'head' ? `
+                    <div class="member-actions">
+                        <button class="edit-member-btn" onclick="openEditModal(${m.id})">编辑</button>
+                        <button class="delete-member-btn" onclick="confirmDeleteMember(${m.id})">删除</button>
+                    </div>
+                ` : ''}
+            </div>
+        `).join('');
+    }
+
+    window.openEditModal = openEditModal;
+    function openEditModal(id) {
+        editingId = id;
+        const member = members.find(m => m.id === id);
+        if (!member) return;
+
+        memberModalTitle.textContent = '编辑成员';
+        document.getElementById('memberId').value = member.id;
+        document.getElementById('memberName').value = member.name;
+        document.getElementById('memberShortName').value = member.short_name || '';
+
+        memberModal.classList.add('active');
+    }
+
+    function openAddModal() {
+        editingId = null;
+        memberModalTitle.textContent = '添加成员';
+        memberForm.reset();
+        memberModal.classList.add('active');
+    }
+
+    function closeModal() {
+        memberModal.classList.remove('active');
+        editingId = null;
+    }
+
+    window.confirmDeleteMember = confirmDeleteMember;
+    function confirmDeleteMember(id) {
+        deletingId = id;
+        deleteMemberModal.classList.add('active');
+    }
+
+    function closeDeleteModal() {
+        deleteMemberModal.classList.remove('active');
+        deletingId = null;
+    }
+
+    async function doDelete() {
+        if (!deletingId) return;
+
+        try {
+            const res = await API.deleteMember(deletingId);
+            if (res.success) {
+                Utils.toast('删除成功');
+                closeDeleteModal();
+                await loadMembers();
+            } else {
+                Utils.toast(res.message || '删除失败', 'error');
+            }
+        } catch (e) {
+            Utils.toast('网络错误，请稍后重试', 'error');
+        }
+    }
+
+    async function handleSubmit(e) {
+        e.preventDefault();
+
+        const data = {
+            name: document.getElementById('memberName').value,
+            shortName: document.getElementById('memberShortName').value || null
+        };
+
+        try {
+            let res;
+            if (editingId) {
+                res = await API.updateMember(editingId, data);
+            } else {
+                res = await API.createMember(data);
+            }
+
+            if (res.success) {
+                Utils.toast(editingId ? '更新成功' : '添加成功');
+                closeModal();
+                await loadMembers();
+            } else {
+                Utils.toast(res.message || '操作失败', 'error');
+            }
+        } catch (e) {
+            Utils.toast('网络错误，请稍后重试', 'error');
+        }
+    }
+})();
+</script>
+</body>
+</html>
