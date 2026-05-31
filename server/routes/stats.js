@@ -12,36 +12,45 @@ router.get('/', authMiddleware, (req, res) => {
   let recordsParams = [];
   let membersWhere = '';
   let membersParams = [];
+  let whereConnector = 'WHERE';
 
   if (req.user.role === 'admin') {
-    // 管理员查看所有
+    whereConnector = 'WHERE';
   } else if (req.user.role === 'head') {
-    // 户主查看本家庭
     recordsWhere = 'WHERE r.family_id = ?';
     recordsParams.push(req.user.familyId);
     membersWhere = 'WHERE family_id = ?';
     membersParams.push(req.user.familyId);
+    whereConnector = 'AND';
   } else {
-    // 成员只查看自己的
     recordsWhere = 'WHERE r.member_id = ?';
     recordsParams.push(req.user.memberId);
     membersWhere = 'WHERE id = ?';
     membersParams.push(req.user.memberId);
+    whereConnector = 'AND';
   }
 
-  // 资产相关统计
-  const recordsStats = db.prepare(`
-    SELECT
-      COUNT(*) as total_records,
-      SUM(CASE WHEN r.status = 'valid' THEN r.value ELSE 0 END) as total_value,
-      SUM(CASE WHEN r.status = 'valid' AND r.previous_value IS NOT NULL
-               THEN r.value - r.previous_value ELSE 0 END) as total_change,
-      AVG(CASE WHEN r.status = 'valid' AND r.previous_value IS NOT NULL
-              THEN ((r.value - r.previous_value) / r.previous_value) * 100
-              ELSE NULL END) as avg_rate
+  // 资产相关统计 - 按资产名称去重，仅取每个名称的最新记录
+  const deduplicatedRecords = db.prepare(`
+    SELECT r.id, r.name, r.value, r.type, r.status, r.created_at, r.date
     FROM records r
     ${recordsWhere}
-  `).get(...recordsParams);
+    ${whereConnector} r.status = 'valid'
+    AND r.id IN (
+      SELECT MAX(r2.id)
+      FROM records r2
+      ${recordsWhere}
+      ${whereConnector} r2.status = 'valid'
+      GROUP BY r2.name
+    )
+  `).all(...recordsParams, ...recordsParams);
+
+  const totalValue = deduplicatedRecords.reduce((sum, r) => sum + r.value, 0);
+  const totalRecords = db.prepare(`
+    SELECT COUNT(*) as total_records
+    FROM records r
+    ${recordsWhere}
+  `).get(...recordsParams).total_records;
 
   // 成员统计
   const membersStats = db.prepare(`
@@ -94,39 +103,37 @@ router.get('/', authMiddleware, (req, res) => {
     ${pendingWhere}
   `).get(...pendingParams);
 
-  // 资产类型分布
-  let typeWhere = '';
-  let typeParams = [];
-  if (req.user.role === 'admin') {
-  } else if (req.user.role === 'head') {
-    typeWhere = 'WHERE r.family_id = ?';
-    typeParams.push(req.user.familyId);
-  } else {
-    typeWhere = 'WHERE r.member_id = ?';
-    typeParams.push(req.user.memberId);
-  }
-
+  // 资产类型分布 - 先按 type+name 去重取最新记录，再按 type 汇总
   const typeDistribution = db.prepare(`
     SELECT 
-      r.type,
+      latest.type,
       at.display_name,
       at.color,
-      COUNT(*) as record_count,
-      SUM(r.value) as total_value
-    FROM records r
-    LEFT JOIN asset_types at ON r.type = at.type_value
-    ${typeWhere}
-    GROUP BY r.type
+      COUNT(DISTINCT latest.name) as record_count,
+      SUM(latest.value) as total_value
+    FROM (
+      SELECT r.type, r.name, r.value
+      FROM records r
+      ${recordsWhere}
+      ${whereConnector} r.status = 'valid'
+      AND r.id IN (
+        SELECT MAX(r2.id)
+        FROM records r2
+        ${recordsWhere}
+        ${whereConnector} r2.status = 'valid'
+        GROUP BY r2.type, r2.name
+      )
+    ) latest
+    LEFT JOIN asset_types at ON latest.type = at.type_value
+    GROUP BY latest.type
     ORDER BY total_value DESC
-  `).all(...typeParams);
+  `).all(...recordsParams, ...recordsParams);
 
   res.json({
     success: true,
     data: {
-      totalValue: recordsStats.total_value || 0,
-      totalChange: recordsStats.total_change || 0,
-      totalRate: recordsStats.avg_rate ? Number(recordsStats.avg_rate.toFixed(1)) : 0,
-      totalRecords: recordsStats.total_records,
+      totalValue,
+      totalRecords,
       memberCount: membersStats.member_count,
       activeMembers: membersStats.active_members,
       monthlyNew: monthlyStats.monthly_new,

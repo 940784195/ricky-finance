@@ -74,6 +74,11 @@ const API = {
         });
     },
 
+    async getAssetNames(keyword = '') {
+        const query = keyword ? `?keyword=${encodeURIComponent(keyword)}` : '';
+        return this.request(`/api/records/asset-names${query}`);
+    },
+
     async getMembers() {
         return this.request('/api/members');
     },

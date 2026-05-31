@@ -31,6 +31,9 @@ app.use('/api/records', authMiddleware, recordsRoutes);
 const statsRoutes = require('./routes/stats');
 app.use('/api/stats', authMiddleware, statsRoutes);
 
+const customersRoutes = require('./routes/customers');
+app.use('/api/customers', authMiddleware, customersRoutes);
+
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 const { getDb } = require('./db');

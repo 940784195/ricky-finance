@@ -4,7 +4,38 @@ const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
 
-// 获取资产记录列表
+router.get('/asset-names', authMiddleware, (req, res) => {
+  const db = getDb();
+  const { keyword } = req.query;
+
+  let whereClauses = [];
+  let params = [];
+
+  if (req.user.role === 'head') {
+    whereClauses.push('r.family_id = ?');
+    params.push(req.user.familyId);
+  } else if (req.user.role === 'member') {
+    whereClauses.push('r.member_id = ?');
+    params.push(req.user.memberId);
+  }
+
+  if (keyword) {
+    whereClauses.push('r.name LIKE ?');
+    params.push(`%${keyword}%`);
+  }
+
+  const sql = `
+    SELECT DISTINCT r.name
+    FROM records r
+    ${whereClauses.length ? 'WHERE ' + whereClauses.join(' AND ') : ''}
+    ORDER BY r.date DESC
+    LIMIT 20
+  `;
+
+  const names = db.prepare(sql).all(...params).map(row => row.name);
+  res.json({ success: true, data: names });
+});
+
 router.get('/', authMiddleware, (req, res) => {
   const db = getDb();
   const { memberId, type, status, startDate, endDate, keyword } = req.query;
@@ -12,19 +43,14 @@ router.get('/', authMiddleware, (req, res) => {
   let whereClauses = ['1=1'];
   let params = [];
 
-  // 权限过滤
-  if (req.user.role === 'admin') {
-    // 管理员查看所有记录
-  } else if (req.user.role === 'head') {
+  if (req.user.role === 'head') {
     whereClauses.push('r.family_id = ?');
     params.push(req.user.familyId);
-  } else {
-    // 成员只查看自己的记录
+  } else if (req.user.role === 'member') {
     whereClauses.push('r.member_id = ?');
     params.push(req.user.memberId);
   }
 
-  // 其他筛选条件
   if (memberId) {
     whereClauses.push('r.member_id = ?');
     params.push(memberId);
@@ -63,7 +89,6 @@ router.get('/', authMiddleware, (req, res) => {
   res.json({ success: true, data: records });
 });
 
-// 获取单条记录详情
 router.get('/:id', authMiddleware, (req, res) => {
   const db = getDb();
   const record = db.prepare(`
@@ -78,7 +103,6 @@ router.get('/:id', authMiddleware, (req, res) => {
     return res.status(404).json({ success: false, message: '记录不存在' });
   }
 
-  // 权限检查
   if (req.user.role !== 'admin' && record.family_id !== req.user.familyId) {
     return res.status(403).json({ success: false, message: '无权访问此记录' });
   }
@@ -89,11 +113,9 @@ router.get('/:id', authMiddleware, (req, res) => {
   res.json({ success: true, data: record });
 });
 
-// 添加资产记录
 router.post('/', authMiddleware, (req, res) => {
-  const { type, name, value, date, previousValue, note, memberId } = req.body;
+  const { type, name, value, date, note, memberId } = req.body;
 
-  // 权限检查
   let targetMemberId = memberId;
   if (req.user.role === 'member') {
     targetMemberId = req.user.memberId;
@@ -102,14 +124,14 @@ router.post('/', authMiddleware, (req, res) => {
     targetMemberId = req.user.memberId;
   }
   if (req.user.role === 'head' && memberId) {
-    // 验证成员是否属于本家庭
     const member = getDb().prepare('SELECT * FROM members WHERE id = ?').get(memberId);
     if (!member || member.family_id !== req.user.familyId) {
       return res.status(403).json({ success: false, message: '无权为该成员添加记录' });
     }
   }
-  if (req.user.role === 'admin') {
-    return res.status(403).json({ success: false, message: '管理员不允许添加资产记录' });
+
+  if (req.user.role === 'admin' && !memberId) {
+    return res.status(400).json({ success: false, message: '管理员添加记录必须指定 memberId' });
   }
 
   if (!type || !name || !value || !date) {
@@ -117,7 +139,6 @@ router.post('/', authMiddleware, (req, res) => {
   }
 
   const db = getDb();
-  // 确保 targetMemberId 是数字类型
   const numericMemberId = typeof targetMemberId === 'string' ? parseInt(targetMemberId, 10) : targetMemberId;
   const member = db.prepare('SELECT * FROM members WHERE id = ?').get(numericMemberId);
   if (!member) {
@@ -125,15 +146,14 @@ router.post('/', authMiddleware, (req, res) => {
   }
 
   const result = db.prepare(`
-    INSERT INTO records (member_id, family_id, type, name, value, previous_value, date, status, note)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 'valid', ?)
+    INSERT INTO records (member_id, family_id, type, name, value, date, status, note)
+    VALUES (?, ?, ?, ?, ?, ?, 'valid', ?)
   `).run(
     numericMemberId,
     member.family_id,
     type,
     name,
     Number(value),
-    previousValue ? Number(previousValue) : null,
     date,
     note || ''
   );
@@ -149,7 +169,6 @@ router.post('/', authMiddleware, (req, res) => {
   res.status(201).json({ success: true, data: newRecord });
 });
 
-// 更新资产记录
 router.put('/:id', authMiddleware, (req, res) => {
   const db = getDb();
   const record = db.prepare('SELECT * FROM records WHERE id = ?').get(req.params.id);
@@ -158,10 +177,6 @@ router.put('/:id', authMiddleware, (req, res) => {
     return res.status(404).json({ success: false, message: '记录不存在' });
   }
 
-  // 权限检查
-  if (req.user.role === 'admin') {
-    return res.status(403).json({ success: false, message: '管理员不允许修改资产记录' });
-  }
   if (req.user.role === 'member' && record.member_id !== req.user.memberId) {
     return res.status(403).json({ success: false, message: '无权修改此记录' });
   }
@@ -194,7 +209,6 @@ router.put('/:id', authMiddleware, (req, res) => {
   res.json({ success: true, data: updatedRecord });
 });
 
-// 删除资产记录
 router.delete('/:id', authMiddleware, (req, res) => {
   const db = getDb();
   const record = db.prepare('SELECT * FROM records WHERE id = ?').get(req.params.id);
@@ -203,10 +217,6 @@ router.delete('/:id', authMiddleware, (req, res) => {
     return res.status(404).json({ success: false, message: '记录不存在' });
   }
 
-  // 权限检查
-  if (req.user.role === 'admin') {
-    return res.status(403).json({ success: false, message: '管理员不允许删除资产记录' });
-  }
   if (req.user.role === 'member' && record.member_id !== req.user.memberId) {
     return res.status(403).json({ success: false, message: '无权删除此记录' });
   }

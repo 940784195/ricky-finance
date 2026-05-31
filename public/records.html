@@ -198,6 +198,44 @@
             border-radius: 8px;
             font-size: 13px;
         }
+        .autocomplete-container {
+            position: relative;
+        }
+        .autocomplete-list {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            margin-top: 4px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+        }
+        .autocomplete-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.15s;
+        }
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
+        .autocomplete-item:hover {
+            background: var(--bg-hover);
+        }
+        .autocomplete-item.selected {
+            background: var(--accent);
+            color: white;
+        }
+        .autocomplete-highlight {
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -288,6 +326,9 @@
                 <select class="form-control" id="typeFilter">
                     <option value="">全部类型</option>
                 </select>
+                <select class="form-control" id="nameFilter">
+                    <option value="">全部资产名称</option>
+                </select>
                 <input type="date" class="form-control" id="startDate" placeholder="开始日期">
                 <input type="date" class="form-control" id="endDate" placeholder="结束日期">
                 <input type="text" class="form-control" id="searchKeyword" placeholder="搜索...">
@@ -349,15 +390,14 @@
                 </div>
                 <div class="form-group">
                     <label>资产名称</label>
-                    <input type="text" id="recordName" class="form-control" required placeholder="例如：招商银行股票">
+                    <div class="autocomplete-container">
+                        <input type="text" id="recordName" class="form-control" required placeholder="例如：招商银行股票">
+                        <div class="autocomplete-list" id="recordNameAutocomplete"></div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>当前价值</label>
                     <input type="number" id="recordValue" class="form-control" required step="0.01" placeholder="0">
-                </div>
-                <div class="form-group">
-                    <label>上期价值（可选）</label>
-                    <input type="number" id="recordPrevValue" class="form-control" step="0.01" placeholder="0">
                 </div>
                 <div class="form-group">
                     <label>记录日期</label>
@@ -430,6 +470,8 @@
     let editingId = null;
     let deletingId = null;
     let currentTab = 'list';
+    let assetNames = [];
+    let autocompleteIndex = -1;
 
     const sidebar = document.getElementById('sidebar');
     const menuBtn = document.getElementById('menuBtn');
@@ -440,6 +482,7 @@
     const recordsTableBody = document.getElementById('recordsTableBody');
     const memberFilter = document.getElementById('memberFilter');
     const typeFilter = document.getElementById('typeFilter');
+    const nameFilter = document.getElementById('nameFilter');
     const startDateInput = document.getElementById('startDate');
     const endDateInput = document.getElementById('endDate');
     const searchKeyword = document.getElementById('searchKeyword');
@@ -469,30 +512,7 @@
 
     console.log('DOM 元素获取完成');
 
-    init();
-
-    async function init() {
-        console.log('init() 函数开始执行');
-        setupUserInfo();
-        setupNav();
-        setupEventListeners();
-        setTodayDate();
-        
-        await loadAssetTypes();
-        await Promise.all([
-            loadStats(),
-            loadMembers(),
-            loadRecords()
-        ]);
-        
-        const savedType = localStorage.getItem('recordFilterType');
-        if (savedType) {
-            typeFilter.value = savedType;
-            localStorage.removeItem('recordFilterType');
-            applyFilters();
-        }
-        console.log('init() 函数执行完成');
-    }
+    // 旧的 init() 函数已移除，新的 init() 函数在文件末尾
 
     function setupUserInfo() {
         userName.textContent = user?.name || user?.username || '用户';
@@ -522,6 +542,7 @@
 
         memberFilter.addEventListener('change', applyFilters);
         typeFilter.addEventListener('change', applyFilters);
+        nameFilter.addEventListener('change', applyFilters);
         startDateInput.addEventListener('change', applyFilters);
         endDateInput.addEventListener('change', applyFilters);
         searchKeyword.addEventListener('input', Utils.debounce(applyFilters, 300));
@@ -648,7 +669,7 @@
 
         const memberIdSelect = document.getElementById('memberId');
         if (memberIdSelect) {
-            if (isMember || isAdmin) {
+            if (isMember) {
                 memberFormGroup.style.display = 'none';
             } else {
                 memberFormGroup.style.display = '';
@@ -682,6 +703,26 @@
         }
     }
 
+    async function loadAssetNames() {
+        try {
+            const res = await API.getAssetNames();
+            if (res.success) {
+                assetNames = res.data;
+                renderNameFilters();
+            }
+        } catch (e) {
+            console.error('Failed to load asset names:', e);
+        }
+    }
+
+    function renderNameFilters() {
+        let options = '<option value="">全部资产名称</option>';
+        assetNames.forEach(n => {
+            options += `<option value="${n}">${n}</option>`;
+        });
+        nameFilter.innerHTML = options;
+    }
+
     async function loadRecords() {
         try {
             const res = await API.getRecords();
@@ -702,6 +743,9 @@
 
         const type = typeFilter.value;
         if (type) filtered = filtered.filter(r => r.type === type);
+
+        const name = nameFilter.value;
+        if (name) filtered = filtered.filter(r => r.name === name);
 
         const start = startDateInput.value;
         if (start) filtered = filtered.filter(r => r.date >= start);
@@ -896,16 +940,13 @@
         const recordValueInput = document.getElementById('recordValue');
         if (recordValueInput) recordValueInput.value = record.value;
 
-        const recordPrevValueInput = document.getElementById('recordPrevValue');
-        if (recordPrevValueInput) recordPrevValueInput.value = record.previous_value;
-
         const recordDateInput = document.getElementById('recordDate');
         if (recordDateInput) recordDateInput.value = record.date;
 
         const recordNoteInput = document.getElementById('recordNote');
         if (recordNoteInput) recordNoteInput.value = record.note || '';
 
-        if (isHead) {
+        if (isHead || isAdmin) {
             const memberIdSelect = document.getElementById('memberId');
             if (memberIdSelect) memberIdSelect.value = record.member_id;
         }
@@ -920,7 +961,7 @@
         recordForm.reset();
         setTodayDate();
 
-        if (isHead && members.length) {
+        if ((isHead || isAdmin) && members.length) {
             const memberIdSelect = document.getElementById('memberId');
             if (memberIdSelect) memberIdSelect.value = members[0].id;
         }
@@ -965,7 +1006,7 @@
         console.log('handleSubmit() 函数开始执行');
 
         let memberIdVal = user?.memberId;
-        if (isHead) {
+        if (isHead || isAdmin) {
             const memberIdSelect = document.getElementById('memberId');
             if (memberIdSelect) memberIdVal = parseInt(memberIdSelect.value, 10);
         }
@@ -977,7 +1018,6 @@
         const recordTypeVal = document.getElementById('recordType').value;
         const recordNameVal = document.getElementById('recordName').value;
         const recordValueVal = parseFloat(document.getElementById('recordValue').value);
-        const recordPrevValueVal = document.getElementById('recordPrevValue').value ? parseFloat(document.getElementById('recordPrevValue').value) : null;
         const recordDateVal = document.getElementById('recordDate').value;
         const recordNoteVal = document.getElementById('recordNote').value;
 
@@ -987,7 +1027,6 @@
             type: recordTypeVal,
             name: recordNameVal,
             value: recordValueVal,
-            previousValue: recordPrevValueVal,
             date: recordDateVal,
             note: recordNoteVal
         });
@@ -1002,7 +1041,6 @@
             type: recordTypeVal,
             name: recordNameVal,
             value: recordValueVal,
-            previousValue: recordPrevValueVal,
             date: recordDateVal,
             note: recordNoteVal
         };
@@ -1037,6 +1075,149 @@
         if (startDateInput.value) params.startDate = startDateInput.value;
         if (endDateInput.value) params.endDate = endDateInput.value;
         API.exportCSV(params);
+    }
+
+    async function loadAssetNames() {
+        try {
+            const res = await API.getAssetNames();
+            if (res.success) {
+                assetNames = res.data;
+            }
+        } catch (e) {
+            console.error('Failed to load asset names:', e);
+        }
+    }
+
+    function setupAutocomplete() {
+        const recordNameInput = document.getElementById('recordName');
+        const autocompleteList = document.getElementById('recordNameAutocomplete');
+        let debounceTimer = null;
+
+        recordNameInput.addEventListener('focus', async () => {
+            if (recordNameInput.value.trim()) {
+                await showAutocomplete(recordNameInput.value.trim());
+            } else {
+                await showAutocomplete('');
+            }
+        });
+
+        recordNameInput.addEventListener('input', (e) => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(async () => {
+                await showAutocomplete(e.target.value.trim());
+            }, 200);
+        });
+
+        recordNameInput.addEventListener('keydown', (e) => {
+            const items = autocompleteList.querySelectorAll('.autocomplete-item');
+            if (items.length === 0) return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                autocompleteIndex = (autocompleteIndex + 1) % items.length;
+                updateAutocompleteSelection(items);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                autocompleteIndex = (autocompleteIndex - 1 + items.length) % items.length;
+                updateAutocompleteSelection(items);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (autocompleteIndex >= 0 && items[autocompleteIndex]) {
+                    selectAutocompleteItem(items[autocompleteIndex]);
+                }
+            } else if (e.key === 'Escape') {
+                hideAutocomplete();
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!recordNameInput.contains(e.target) && !autocompleteList.contains(e.target)) {
+                hideAutocomplete();
+            }
+        });
+    }
+
+    async function showAutocomplete(keyword) {
+        const autocompleteList = document.getElementById('recordNameAutocomplete');
+        
+        let filteredNames = assetNames;
+        if (keyword) {
+            filteredNames = assetNames.filter(name => name.toLowerCase().includes(keyword.toLowerCase()));
+        }
+
+        if (filteredNames.length === 0) {
+            hideAutocomplete();
+            return;
+        }
+
+        autocompleteIndex = -1;
+        autocompleteList.innerHTML = filteredNames.slice(0, 10).map(name => {
+            let displayName = name;
+            if (keyword) {
+                const regex = new RegExp(`(${keyword})`, 'gi');
+                displayName = name.replace(regex, '<span class="autocomplete-highlight">$1</span>');
+            }
+            return `<div class="autocomplete-item" data-name="${name}">${displayName}</div>`;
+        }).join('');
+
+        autocompleteList.querySelectorAll('.autocomplete-item').forEach((item, index) => {
+            item.addEventListener('click', () => {
+                selectAutocompleteItem(item);
+            });
+            item.addEventListener('mouseenter', () => {
+                autocompleteIndex = index;
+                const items = autocompleteList.querySelectorAll('.autocomplete-item');
+                updateAutocompleteSelection(items);
+            });
+        });
+
+        autocompleteList.style.display = 'block';
+    }
+
+    function hideAutocomplete() {
+        const autocompleteList = document.getElementById('recordNameAutocomplete');
+        autocompleteList.style.display = 'none';
+        autocompleteList.innerHTML = '';
+        autocompleteIndex = -1;
+    }
+
+    function updateAutocompleteSelection(items) {
+        items.forEach((item, index) => {
+            item.classList.toggle('selected', index === autocompleteIndex);
+        });
+    }
+
+    function selectAutocompleteItem(item) {
+        const recordNameInput = document.getElementById('recordName');
+        recordNameInput.value = item.dataset.name;
+        hideAutocomplete();
+    }
+
+    init();
+
+    async function init() {
+        console.log('init() 函数开始执行');
+        setupUserInfo();
+        setupNav();
+        setupEventListeners();
+        setupAutocomplete();
+        setTodayDate();
+        
+        await loadAssetTypes();
+        await Promise.all([
+            loadStats(),
+            loadMembers(),
+            loadRecords(),
+            loadAssetNames()
+        ]);
+        
+        const savedType = localStorage.getItem('recordFilterType');
+        if (savedType) {
+            typeFilter.value = savedType;
+            localStorage.removeItem('recordFilterType');
+            applyFilters();
+        }
+        console.log('init() 函数执行完成');
     }
 })();
 </script>

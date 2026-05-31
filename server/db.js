@@ -10,6 +10,7 @@ function getDb() {
   if (!db) {
     db = new Database(DB_PATH);
     db.pragma('journal_mode = WAL');
+    db.pragma('foreign_keys = ON');
     initTables();
     seedDefaultData();
   }
@@ -17,57 +18,54 @@ function getDb() {
 }
 
 function initTables() {
-  // 用户表
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'member',
+      role TEXT NOT NULL DEFAULT 'member' CHECK(role IN ('admin', 'head', 'member')),
       member_id INTEGER,
-      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+      FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE SET NULL
     )
   `);
 
-  // 家庭表
   db.exec(`
     CREATE TABLE IF NOT EXISTS families (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       family_name TEXT NOT NULL,
       head_id INTEGER,
       created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
-      FOREIGN KEY (head_id) REFERENCES members(id)
+      FOREIGN KEY (head_id) REFERENCES members(id) ON DELETE SET NULL
     )
   `);
 
-  // 家庭成员表
   db.exec(`
     CREATE TABLE IF NOT EXISTS members (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       family_id INTEGER NOT NULL,
       name TEXT NOT NULL,
       short_name TEXT,
-      role TEXT NOT NULL DEFAULT 'member',
+      role TEXT NOT NULL DEFAULT 'member' CHECK(role IN ('head', 'member')),
       created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
-      FOREIGN KEY (family_id) REFERENCES families(id)
+      FOREIGN KEY (family_id) REFERENCES families(id) ON DELETE CASCADE
     )
   `);
 
-  // 资产类型表
   db.exec(`
     CREATE TABLE IF NOT EXISTS asset_types (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      type_value TEXT UNIQUE NOT NULL,
+      type_value TEXT NOT NULL,
       display_name TEXT NOT NULL,
       color TEXT NOT NULL,
       is_custom INTEGER DEFAULT 0,
       family_id INTEGER,
       created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
-      FOREIGN KEY (family_id) REFERENCES families(id)
+      FOREIGN KEY (family_id) REFERENCES families(id) ON DELETE CASCADE,
+      UNIQUE(type_value, family_id)
     )
   `);
 
-  // 资产记录表
   db.exec(`
     CREATE TABLE IF NOT EXISTS records (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -75,41 +73,47 @@ function initTables() {
       family_id INTEGER NOT NULL,
       type TEXT NOT NULL,
       name TEXT NOT NULL,
-      value REAL NOT NULL,
+      value REAL NOT NULL CHECK(value >= 0),
       previous_value REAL,
       date TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'valid',
+      status TEXT NOT NULL DEFAULT 'valid' CHECK(status IN ('valid', 'pending', 'archived')),
       note TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
-      FOREIGN KEY (member_id) REFERENCES members(id),
-      FOREIGN KEY (family_id) REFERENCES families(id)
+      FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE,
+      FOREIGN KEY (family_id) REFERENCES families(id) ON DELETE CASCADE
     )
   `);
+
+  initIndexes();
+}
+
+function initIndexes() {
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_records_member_family ON records(member_id, family_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_records_type_date ON records(type, date DESC)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_records_name_date ON records(name, date DESC)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_records_family_date ON records(family_id, date DESC)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_members_family_role ON members(family_id, role)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_asset_types_family ON asset_types(family_id, type_value)`);
 }
 
 function seedDefaultData() {
-  // 检查是否需要初始化数据
   const userCount = db.prepare('SELECT COUNT(*) as cnt FROM users').get();
   if (userCount.cnt > 0) return;
 
   console.log('[DB] 正在初始化默认数据...');
 
-  // 1. 创建默认家庭
   const insertFamily = db.prepare('INSERT INTO families (family_name) VALUES (?)');
   const familyResult = insertFamily.run('张家');
   const familyId = familyResult.lastInsertRowid;
 
-  // 2. 创建默认成员
   const insertMember = db.prepare('INSERT INTO members (family_id, name, short_name, role) VALUES (?, ?, ?, ?)');
   const headResult = insertMember.run(familyId, '张三', '张', 'head');
   const headId = headResult.lastInsertRowid;
   insertMember.run(familyId, '李四', '李', 'member');
   insertMember.run(familyId, '王五', '王', 'member');
 
-  // 3. 更新家庭户主
   db.prepare('UPDATE families SET head_id = ? WHERE id = ?').run(headId, familyId);
 
-  // 4. 创建默认资产类型
   const insertAssetType = db.prepare(
     'INSERT INTO asset_types (type_value, display_name, color, is_custom) VALUES (?, ?, ?, 0)'
   );
@@ -120,7 +124,6 @@ function seedDefaultData() {
   insertAssetType.run('cash', '现金', '#6366f1');
   insertAssetType.run('other', '其他', '#6b7280');
 
-  // 5. 创建默认用户
   const adminHash = bcrypt.hashSync('admin123', 10);
   const headHash = bcrypt.hashSync('head123', 10);
   const memberHash = bcrypt.hashSync('member123', 10);
@@ -132,7 +135,6 @@ function seedDefaultData() {
   insertUser.run('head', headHash, 'head', headId);
   insertUser.run('member', memberHash, 'member', 2);
 
-  // 6. 创建默认资产记录
   const insertRecord = db.prepare(
     'INSERT INTO records (member_id, family_id, type, name, value, previous_value, date, status, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
   );
@@ -148,7 +150,6 @@ function seedDefaultData() {
   console.log('  - 家庭成员: member / member123');
 }
 
-// 用户相关操作
 function findUserByUsername(username) {
   return getDb().prepare('SELECT * FROM users WHERE username = ?').get(username);
 }

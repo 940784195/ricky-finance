@@ -321,10 +321,6 @@
                     <input type="number" id="recordValue" class="form-control" required step="0.01" placeholder="0">
                 </div>
                 <div class="form-group">
-                    <label>上期价值（可选）</label>
-                    <input type="number" id="recordPrevValue" class="form-control" step="0.01" placeholder="0">
-                </div>
-                <div class="form-group">
                     <label>日期</label>
                     <input type="date" id="recordDate" class="form-control" required>
                 </div>
@@ -477,16 +473,10 @@
     }
 
     function renderStats(stats) {
-        const totalChange = stats.totalChange || 0;
-        const totalRate = stats.totalRate || 0;
-
         statsGrid.innerHTML = `
             <div class="card stat-card" style="background: linear-gradient(135deg, var(--accent), #7c3aed);">
                 <div class="stat-label">总资产</div>
                 <div class="stat-value">${Utils.formatMoney(stats.totalValue)}</div>
-                <div class="stat-change ${totalChange >= 0 ? 'up' : 'down'}">
-                    ${totalChange >= 0 ? '↑' : '↓'} ${Utils.formatMoney(Math.abs(totalChange))} (${totalRate >= 0 ? '+' : ''}${totalRate}%)
-                </div>
             </div>
             <div class="card stat-card">
                 <div class="stat-label">资产记录</div>
@@ -876,7 +866,6 @@
             type: document.getElementById('recordType').value,
             name: document.getElementById('recordName').value,
             value: parseFloat(document.getElementById('recordValue').value),
-            previousValue: document.getElementById('recordPrevValue').value ? parseFloat(document.getElementById('recordPrevValue').value) : null,
             date: document.getElementById('recordDate').value,
             note: document.getElementById('recordNote').value
         };
