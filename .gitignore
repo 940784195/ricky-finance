@@ -76,6 +76,9 @@ dist/
 # Database files - 注释掉以便保留数据
 # *.db
 # *.sqlite
+# SQLite temporary files
+*.db-shm
+*.db-wal
 
 # Temp files
 tmp/

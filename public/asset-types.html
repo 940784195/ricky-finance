@@ -4,8 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>资产管家 - 资产类型</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/css/common.css">
     <style>
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
         .types-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -66,6 +76,15 @@
             padding: 60px 20px;
             color: var(--text-muted);
         }
+        .usage-count {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            cursor: pointer;
+        }
+        .usage-count:hover {
+            color: var(--accent);
+        }
     </style>
 </head>
 <body>
@@ -81,7 +100,7 @@
                     <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
                     <polyline points="9,22 9,12 15,12 15,22"/>
                 </svg>
-                仪表盘
+                资产概览
             </a>
             <a href="/records.html" class="nav-item" data-page="records">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -104,6 +123,14 @@
                     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                 </svg>
                 资产类型
+            </a>
+            <a href="/admin-families.html" class="nav-item" data-page="admin-families" id="nav-admin-families" style="display: none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <line x1="3" y1="9" x2="21" y2="9"/>
+                    <line x1="9" y1="21" x2="9" y2="9"/>
+                </svg>
+                所有家庭
             </a>
         </nav>
         <div class="sidebar-footer">
@@ -130,6 +157,7 @@
                 </div>
             </div>
             <div class="header-actions">
+                <button class="btn btn-secondary" id="restoreDefaultBtn">恢复默认类型</button>
                 <button class="btn btn-primary" id="addTypeBtn">➕ 添加类型</button>
                 <div class="user-info">
                     <div class="user-avatar" id="userAvatar">?</div>
@@ -142,6 +170,9 @@
         </header>
 
         <section class="content">
+            <div class="stats-grid" id="statsGrid">
+            </div>
+
             <div class="types-grid" id="typesGrid">
                 <div class="card empty-state">加载中...</div>
             </div>
@@ -160,12 +191,12 @@
                 <input type="hidden" id="typeId">
                 <div class="form-group">
                     <label>类型标识</label>
-                    <input type="text" id="typeValue" class="form-control" required placeholder="如：crypto、gold，英文标识">
+                    <input type="text" id="typeValue" class="form-control" required placeholder="例如：crypto、gold，英文标识">
                     <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">唯一标识，创建后不可修改</p>
                 </div>
                 <div class="form-group">
                     <label>显示名称</label>
-                    <input type="text" id="typeDisplayName" class="form-control" required placeholder="如：加密货币、黄金">
+                    <input type="text" id="typeDisplayName" class="form-control" required placeholder="例如：加密货币、黄金">
                 </div>
                 <div class="form-group">
                     <label>颜色</label>
@@ -190,11 +221,27 @@
             <button class="modal-close" id="closeDeleteTypeModal">×</button>
         </div>
         <div class="modal-body">
-            <p>确定要删除这个资产类型吗？如果有记录正在使用此类型，则无法删除。</p>
+            <p id="deleteTypeText">确定要删除这个资产类型吗？</p>
         </div>
         <div class="modal-footer">
             <button class="btn btn-secondary" id="cancelDeleteTypeBtn">取消</button>
             <button class="btn btn-danger" id="confirmDeleteTypeBtn">删除</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="restoreDefaultModal">
+    <div class="modal" style="max-width: 420px;">
+        <div class="modal-header">
+            <h3>恢复默认类型</h3>
+            <button class="modal-close" id="closeRestoreModal">×</button>
+        </div>
+        <div class="modal-body">
+            <p>确定要恢复默认类型吗？这将重新添加所有预设的资产类型，自定义类型不受影响。</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" id="cancelRestoreBtn">取消</button>
+            <button class="btn btn-primary" id="confirmRestoreBtn">确认恢复</button>
         </div>
     </div>
 </div>
@@ -210,12 +257,13 @@
     }
 
     const user = API.getCurrentUser();
-    if (user?.role !== 'head') {
+    if (user?.role !== 'head' && user?.role !== 'admin') {
         window.location.href = '/dashboard.html';
         return;
     }
 
     let types = [];
+    let typeUsage = {};
     let editingId = null;
     let deletingId = null;
 
@@ -225,33 +273,59 @@
     const userAvatar = document.getElementById('userAvatar');
     const userName = document.getElementById('userName');
     const userRole = document.getElementById('userRole');
+    const statsGrid = document.getElementById('statsGrid');
     const typesGrid = document.getElementById('typesGrid');
     const addTypeBtn = document.getElementById('addTypeBtn');
+    const restoreDefaultBtn = document.getElementById('restoreDefaultBtn');
     const typeModal = document.getElementById('typeModal');
     const deleteTypeModal = document.getElementById('deleteTypeModal');
+    const restoreDefaultModal = document.getElementById('restoreDefaultModal');
     const closeTypeModal = document.getElementById('closeTypeModal');
     const cancelTypeBtn = document.getElementById('cancelTypeBtn');
     const closeDeleteTypeModal = document.getElementById('closeDeleteTypeModal');
     const cancelDeleteTypeBtn = document.getElementById('cancelDeleteTypeBtn');
     const confirmDeleteTypeBtn = document.getElementById('confirmDeleteTypeBtn');
+    const closeRestoreModal = document.getElementById('closeRestoreModal');
+    const cancelRestoreBtn = document.getElementById('cancelRestoreBtn');
+    const confirmRestoreBtn = document.getElementById('confirmRestoreBtn');
     const typeForm = document.getElementById('typeForm');
     const typeModalTitle = document.getElementById('typeModalTitle');
     const typeColor = document.getElementById('typeColor');
     const typeColorText = document.getElementById('typeColorText');
     const typeValue = document.getElementById('typeValue');
+    const navMembers = document.getElementById('nav-members');
+    const navAssetTypes = document.getElementById('nav-asset-types');
+    const navAdminFamilies = document.getElementById('nav-admin-families');
+    const deleteTypeText = document.getElementById('deleteTypeText');
 
     init();
 
     async function init() {
         setupUserInfo();
+        setupNav();
         setupEventListeners();
-        await loadTypes();
+        await Promise.all([
+            loadTypes(),
+            loadTypeUsage()
+        ]);
     }
 
     function setupUserInfo() {
         userName.textContent = user?.name || user?.username || '用户';
         userRole.textContent = Utils.getRoleLabel(user?.role);
         userAvatar.textContent = Utils.getShortName(user?.name || user?.username);
+    }
+
+    function setupNav() {
+        if (user?.role === 'admin') {
+            navMembers.style.display = 'none';
+            navAssetTypes.style.display = 'none';
+            navAdminFamilies.style.display = 'flex';
+            restoreDefaultBtn.style.display = 'none';
+            addTypeBtn.style.display = 'none';
+        } else {
+            navAdminFamilies.style.display = 'none';
+        }
     }
 
     function setupEventListeners() {
@@ -270,6 +344,7 @@
         });
 
         addTypeBtn.addEventListener('click', openAddModal);
+        restoreDefaultBtn.addEventListener('click', () => restoreDefaultModal.classList.add('active'));
         closeTypeModal.addEventListener('click', closeModal);
         cancelTypeBtn.addEventListener('click', closeModal);
         typeModal.addEventListener('click', e => {
@@ -282,6 +357,13 @@
             if (e.target === deleteTypeModal) closeDeleteModal();
         });
 
+        closeRestoreModal.addEventListener('click', () => restoreDefaultModal.classList.remove('active'));
+        cancelRestoreBtn.addEventListener('click', () => restoreDefaultModal.classList.remove('active'));
+        restoreDefaultModal.addEventListener('click', e => {
+            if (e.target === restoreDefaultModal) restoreDefaultModal.classList.remove('active');
+        });
+        confirmRestoreBtn.addEventListener('click', doRestoreDefault);
+
         confirmDeleteTypeBtn.addEventListener('click', doDelete);
         typeForm.addEventListener('submit', handleSubmit);
     }
@@ -291,6 +373,7 @@
             const res = await API.getAssetTypes();
             if (res.success) {
                 types = res.data;
+                renderStats();
                 renderTypes();
             }
         } catch (e) {
@@ -299,13 +382,57 @@
         }
     }
 
+    async function loadTypeUsage() {
+        try {
+            const res = await API.getRecords();
+            if (res.success) {
+                const usage = {};
+                res.data.forEach(record => {
+                    usage[record.type] = (usage[record.type] || 0) + 1;
+                });
+                typeUsage = usage;
+                if (types.length > 0) {
+                    renderTypes();
+                }
+            }
+        } catch (e) {
+            console.error('Failed to load type usage:', e);
+        }
+    }
+
+    function renderStats() {
+        const totalTypes = types.length;
+        const customTypes = types.filter(t => t.is_custom).length;
+        const defaultTypes = types.filter(t => !t.is_custom).length;
+
+        statsGrid.innerHTML = `
+            <div class="card stat-card">
+                <div class="stat-label">总类型数</div>
+                <div class="stat-value">${totalTypes}</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-label">自定义类型</div>
+                <div class="stat-value">${customTypes}</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-label">预设类型</div>
+                <div class="stat-value">${defaultTypes}</div>
+            </div>
+        `;
+    }
+
     function renderTypes() {
         if (!types.length) {
             typesGrid.innerHTML = '<div class="card empty-state">暂无类型，点击上方按钮添加</div>';
             return;
         }
 
-        typesGrid.innerHTML = types.map(t => `
+        const sortedTypes = [...types].sort((a, b) => {
+            if (a.is_custom === b.is_custom) return 0;
+            return a.is_custom ? -1 : 1;
+        });
+
+        typesGrid.innerHTML = sortedTypes.map(t => `
             <div class="card type-card">
                 <div class="type-header">
                     <div class="type-dot" style="background: ${t.color};"></div>
@@ -314,7 +441,10 @@
                         <p>${t.type_value}</p>
                     </div>
                 </div>
-                <span class="type-badge">${t.is_custom ? '自定义' : '系统默认'}</span>
+                <span class="type-badge">${t.is_custom ? '自定义' : '预设'}</span>
+                <div class="usage-count" onclick="gotoRecordsByType('${t.type_value}')">
+                    ${typeUsage[t.type_value] || 0} 条记录
+                </div>
                 ${t.is_custom ? `
                     <div class="type-actions">
                         <button class="edit-type-btn" onclick="openEditModal(${t.id})">编辑</button>
@@ -324,6 +454,11 @@
             </div>
         `).join('');
     }
+
+    window.gotoRecordsByType = function(typeValue) {
+        localStorage.setItem('recordFilterType', typeValue);
+        window.location.href = '/records.html';
+    };
 
     window.openEditModal = openEditModal;
     function openEditModal(id) {
@@ -360,6 +495,16 @@
     window.confirmDeleteType = confirmDeleteType;
     function confirmDeleteType(id) {
         deletingId = id;
+        const type = types.find(t => t.id === id);
+        if (!type) return;
+
+        const usageCount = typeUsage[type.type_value] || 0;
+        if (usageCount > 0) {
+            deleteTypeText.innerHTML = `该资产类型有 <strong style="color: var(--danger);">${usageCount}</strong> 条记录使用，删除后这些记录的类型将变为'其他'。确定要删除吗？`;
+        } else {
+            deleteTypeText.textContent = '确定要删除这个资产类型吗？';
+        }
+
         deleteTypeModal.classList.add('active');
     }
 
@@ -376,9 +521,24 @@
             if (res.success) {
                 Utils.toast('删除成功');
                 closeDeleteModal();
-                await loadTypes();
+                await Promise.all([loadTypes(), loadTypeUsage()]);
             } else {
                 Utils.toast(res.message || '删除失败', 'error');
+            }
+        } catch (e) {
+            Utils.toast('网络错误，请稍后重试', 'error');
+        }
+    }
+
+    async function doRestoreDefault() {
+        try {
+            const res = await API.restoreDefaultAssetTypes();
+            if (res.success) {
+                Utils.toast('恢复成功');
+                restoreDefaultModal.classList.remove('active');
+                await Promise.all([loadTypes(), loadTypeUsage()]);
+            } else {
+                Utils.toast(res.message || '恢复失败', 'error');
             }
         } catch (e) {
             Utils.toast('网络错误，请稍后重试', 'error');
@@ -408,7 +568,7 @@
             if (res.success) {
                 Utils.toast(editingId ? '更新成功' : '添加成功');
                 closeModal();
-                await loadTypes();
+                await Promise.all([loadTypes(), loadTypeUsage()]);
             } else {
                 Utils.toast(res.message || '操作失败', 'error');
             }

@@ -7,7 +7,12 @@ const API = {
 
     getCurrentUser() {
         const user = localStorage.getItem('user');
-        return user ? JSON.parse(user) : null;
+        if (!user) return null;
+        try {
+            return JSON.parse(user);
+        } catch (e) {
+            return null;
+        }
     },
 
     logout() {
@@ -118,6 +123,12 @@ const API = {
     async deleteAssetType(id) {
         return this.request(`/api/asset-types/${id}`, {
             method: 'DELETE'
+        });
+    },
+
+    async restoreDefaultAssetTypes() {
+        return this.request('/api/asset-types/restore-default', {
+            method: 'POST'
         });
     },
 

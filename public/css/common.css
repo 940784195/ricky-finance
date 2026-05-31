@@ -240,6 +240,21 @@ body {
     color: var(--text-muted);
 }
 
+/* Select dropdown styles */
+.form-control option {
+    color: #000000 !important;
+    background: #ffffff;
+}
+
+.form-control {
+    color: var(--text-primary);
+}
+
+.form-control:focus option {
+    color: #000000 !important;
+    background: #ffffff;
+}
+
 /* Stats Grid */
 .stats-grid {
     display: grid;

@@ -117,7 +117,9 @@ router.post('/', authMiddleware, (req, res) => {
   }
 
   const db = getDb();
-  const member = db.prepare('SELECT * FROM members WHERE id = ?').get(targetMemberId);
+  // 确保 targetMemberId 是数字类型
+  const numericMemberId = typeof targetMemberId === 'string' ? parseInt(targetMemberId, 10) : targetMemberId;
+  const member = db.prepare('SELECT * FROM members WHERE id = ?').get(numericMemberId);
   if (!member) {
     return res.status(400).json({ success: false, message: '成员不存在' });
   }
@@ -126,7 +128,7 @@ router.post('/', authMiddleware, (req, res) => {
     INSERT INTO records (member_id, family_id, type, name, value, previous_value, date, status, note)
     VALUES (?, ?, ?, ?, ?, ?, ?, 'valid', ?)
   `).run(
-    targetMemberId,
+    numericMemberId,
     member.family_id,
     type,
     name,
@@ -167,7 +169,8 @@ router.put('/:id', authMiddleware, (req, res) => {
     return res.status(403).json({ success: false, message: '无权修改此记录' });
   }
 
-  const { type, name, value, date, previousValue, status, note } = req.body;
+  const { type, name, value, date, previousValue, status, note, previous_value } = req.body;
+  const actualPreviousValue = previousValue !== undefined ? previousValue : previous_value;
   db.prepare(`
     UPDATE records
     SET type = COALESCE(?, type),
@@ -178,7 +181,7 @@ router.put('/:id', authMiddleware, (req, res) => {
         status = COALESCE(?, status),
         note = CASE WHEN ? IS NOT NULL THEN ? ELSE note END
     WHERE id = ?
-  `).run(type, name, value, value, previousValue, previousValue, date, status, note, note, req.params.id);
+  `).run(type, name, value, value, actualPreviousValue, actualPreviousValue, date, status, note, note, req.params.id);
 
   const updatedRecord = db.prepare(`
     SELECT r.*, m.name as member_name, at.display_name as type_display, at.color as type_color

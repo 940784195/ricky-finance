@@ -4,8 +4,34 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>资产管家 - 资产记录</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/css/common.css">
     <style>
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .tab-btn {
+            padding: 10px 20px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover {
+            background: var(--bg-hover);
+        }
+        .tab-btn.active {
+            background: var(--accent);
+            color: white;
+        }
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -19,6 +45,10 @@
             cursor: pointer;
             margin-left: 6px;
         }
+        .view-btn {
+            background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+        }
         .edit-btn {
             background: rgba(139, 92, 246, 0.15);
             color: var(--accent);
@@ -26,6 +56,147 @@
         .delete-btn {
             background: rgba(239, 68, 68, 0.15);
             color: var(--danger);
+        }
+        .timeline {
+            padding: 20px 0;
+        }
+        .timeline-item {
+            display: flex;
+            gap: 16px;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border);
+            position: relative;
+        }
+        .timeline-item:last-child {
+            border-bottom: none;
+        }
+        .timeline-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--accent);
+            flex-shrink: 0;
+            margin-top: 4px;
+        }
+        .timeline-content {
+            flex: 1;
+        }
+        .timeline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .timeline-title {
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .timeline-date {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .timeline-body {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+        }
+        .timeline-member {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        .timeline-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 12px;
+            color: white;
+        }
+        .timeline-asset {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+        .timeline-type-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        .timeline-values {
+            display: flex;
+            gap: 16px;
+            margin-top: 8px;
+            align-items: center;
+        }
+        .value-old {
+            color: var(--text-muted);
+            text-decoration: line-through;
+        }
+        .value-new {
+            font-weight: 700;
+        }
+        .change-positive {
+            color: var(--success);
+        }
+        .change-negative {
+            color: var(--danger);
+        }
+        .detail-modal .detail-header {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .detail-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 24px;
+            color: white;
+        }
+        .detail-info h3 {
+            margin-bottom: 4px;
+        }
+        .detail-grid {
+            display: grid;
+            gap: 12px;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        .detail-label {
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+        .detail-value {
+            font-weight: 600;
+        }
+        .detail-note {
+            margin-top: 16px;
+            padding: 12px;
+            background: var(--bg-hover);
+            border-radius: 8px;
+            font-size: 13px;
         }
     </style>
 </head>
@@ -39,30 +210,30 @@
         <nav class="nav" id="nav">
             <a href="/dashboard.html" class="nav-item" data-page="dashboard">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-                    <polyline points="9,22 9,12 15,12 15,22"/>
+                    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path>
+                    <polyline points="9,22 9,12 15,12 15,22"></polyline>
                 </svg>
-                仪表盘
+                资产概览
             </a>
             <a href="/records.html" class="nav-item active" data-page="records">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                    <line x1="3" y1="10" x2="21" y2="10"/>
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
                 </svg>
                 资产记录
             </a>
             <a href="/members.html" class="nav-item" data-page="members" id="nav-members">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-                    <circle cx="9" cy="7" r="4"/>
-                    <path d="M23 21v-2a4 4 0 00-3-3.87"/>
-                    <path d="M16 3.13a4 4 0 010 7.75"/>
+                    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M23 21v-2a4 4 0 00-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 010 7.75"></path>
                 </svg>
                 家庭成员
             </a>
             <a href="/asset-types.html" class="nav-item" data-page="asset-types" id="nav-asset-types">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
                 </svg>
                 资产类型
             </a>
@@ -70,9 +241,9 @@
         <div class="sidebar-footer">
             <div class="nav-item" id="logoutBtn" style="color: var(--danger);">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
-                    <polyline points="16,17 21,12 16,7"/>
-                    <line x1="21" y1="12" x2="9" y2="12"/>
+                    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"></path>
+                    <polyline points="16,17 21,12 16,7"></polyline>
+                    <line x1="21" y1="12" x2="9" y2="12"></line>
                 </svg>
                 退出登录
             </div>
@@ -91,8 +262,6 @@
                 </div>
             </div>
             <div class="header-actions">
-                <button class="btn btn-secondary" id="exportBtn">导出 CSV</button>
-                <button class="btn btn-primary" id="addRecordBtn">➕ 添加记录</button>
                 <div class="user-info">
                     <div class="user-avatar" id="userAvatar">?</div>
                     <div>
@@ -104,6 +273,14 @@
         </header>
 
         <section class="content">
+            <div class="stats-grid" id="statsGrid">
+            </div>
+
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="list">记录列表</button>
+                <button class="tab-btn" data-tab="timeline">变更时间线</button>
+            </div>
+
             <div class="filter-bar" id="filterBar">
                 <select class="form-control" id="memberFilter">
                     <option value="">全部成员</option>
@@ -111,35 +288,40 @@
                 <select class="form-control" id="typeFilter">
                     <option value="">全部类型</option>
                 </select>
-                <select class="form-control" id="statusFilter">
-                    <option value="">全部状态</option>
-                    <option value="valid">有效</option>
-                    <option value="pending">待审核</option>
-                    <option value="invalid">无效</option>
-                </select>
                 <input type="date" class="form-control" id="startDate" placeholder="开始日期">
                 <input type="date" class="form-control" id="endDate" placeholder="结束日期">
                 <input type="text" class="form-control" id="searchKeyword" placeholder="搜索...">
+                <button class="btn btn-secondary" id="exportBtn">导出 CSV</button>
+                <button class="btn btn-primary" id="addRecordBtn">➕ 添加记录</button>
             </div>
 
-            <div class="card">
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>成员</th>
-                                <th>资产名称</th>
-                                <th>类型</th>
-                                <th>价值</th>
-                                <th>日期</th>
-                                <th>状态</th>
-                                <th style="text-align: right;">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="recordsTableBody">
-                            <tr><td colspan="7" class="empty-state">暂无数据</td></tr>
-                        </tbody>
-                    </table>
+            <div id="listContent">
+                <div class="card">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>成员</th>
+                                    <th>资产名称</th>
+                                    <th>类型</th>
+                                    <th>价值</th>
+                                    <th>日期</th>
+                                    <th style="text-align: right;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recordsTableBody">
+                                <tr><td colspan="6" class="empty-state">暂无数据</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="timelineContent" style="display: none;">
+                <div class="card">
+                    <div class="timeline" id="timelineList">
+                        <div class="empty-state">暂无变更记录</div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -149,7 +331,7 @@
 <div class="modal-overlay" id="recordModal">
     <div class="modal">
         <div class="modal-header">
-            <h3 id="modalTitle">添加记录</h3>
+            <h3 id="modalTitle">添加资产记录</h3>
             <button class="modal-close" id="closeModalBtn">×</button>
         </div>
         <div class="modal-body">
@@ -161,7 +343,7 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>类型</label>
+                    <label>资产类型</label>
                     <select id="recordType" class="form-control" required>
                     </select>
                 </div>
@@ -178,16 +360,8 @@
                     <input type="number" id="recordPrevValue" class="form-control" step="0.01" placeholder="0">
                 </div>
                 <div class="form-group">
-                    <label>日期</label>
+                    <label>记录日期</label>
                     <input type="date" id="recordDate" class="form-control" required>
-                </div>
-                <div class="form-group">
-                    <label>状态</label>
-                    <select id="recordStatus" class="form-control" required>
-                        <option value="valid">有效</option>
-                        <option value="pending">待审核</option>
-                        <option value="invalid">无效</option>
-                    </select>
                 </div>
                 <div class="form-group">
                     <label>备注（可选）</label>
@@ -197,7 +371,22 @@
         </div>
         <div class="modal-footer">
             <button type="button" class="btn btn-secondary" id="cancelBtn">取消</button>
-            <button type="submit" class="btn btn-primary" form="recordForm">保存</button>
+            <button type="submit" class="btn btn-primary" id="saveRecordBtn">保存</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="detailModal">
+    <div class="modal detail-modal">
+        <div class="modal-header">
+            <h3>资产记录详情</h3>
+            <button class="modal-close" id="closeDetailModal">×</button>
+        </div>
+        <div class="modal-body" id="detailContent">
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="closeDetailBtn">关闭</button>
+            <button type="button" class="btn btn-primary" id="editFromDetailBtn">编辑记录</button>
         </div>
     </div>
 </div>
@@ -209,7 +398,7 @@
             <button class="modal-close" id="closeDeleteBtn">×</button>
         </div>
         <div class="modal-body">
-            <p>确定要删除这条记录吗？此操作无法撤销。</p>
+            <p>确定要删除这条资产记录吗？此操作无法撤销。</p>
         </div>
         <div class="modal-footer">
             <button class="btn btn-secondary" id="cancelDeleteBtn">取消</button>
@@ -222,6 +411,8 @@
 <script src="/js/utils.js"></script>
 <script>
 (function() {
+    console.log('records.js 初始化开始执行');
+
     const token = localStorage.getItem('token');
     if (!token) {
         window.location.href = '/login.html';
@@ -238,6 +429,7 @@
     let allRecords = [];
     let editingId = null;
     let deletingId = null;
+    let currentTab = 'list';
 
     const sidebar = document.getElementById('sidebar');
     const menuBtn = document.getElementById('menuBtn');
@@ -248,16 +440,19 @@
     const recordsTableBody = document.getElementById('recordsTableBody');
     const memberFilter = document.getElementById('memberFilter');
     const typeFilter = document.getElementById('typeFilter');
-    const statusFilter = document.getElementById('statusFilter');
     const startDateInput = document.getElementById('startDate');
     const endDateInput = document.getElementById('endDate');
     const searchKeyword = document.getElementById('searchKeyword');
     const addRecordBtn = document.getElementById('addRecordBtn');
     const exportBtn = document.getElementById('exportBtn');
     const recordModal = document.getElementById('recordModal');
+    const detailModal = document.getElementById('detailModal');
     const deleteModal = document.getElementById('deleteModal');
     const closeModalBtn = document.getElementById('closeModalBtn');
     const cancelBtn = document.getElementById('cancelBtn');
+    const closeDetailModal = document.getElementById('closeDetailModal');
+    const closeDetailBtn = document.getElementById('closeDetailBtn');
+    const editFromDetailBtn = document.getElementById('editFromDetailBtn');
     const closeDeleteBtn = document.getElementById('closeDeleteBtn');
     const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
     const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
@@ -266,19 +461,37 @@
     const memberFormGroup = document.getElementById('memberFormGroup');
     const navMembers = document.getElementById('nav-members');
     const navAssetTypes = document.getElementById('nav-asset-types');
+    const statsGrid = document.getElementById('statsGrid');
+    const listContent = document.getElementById('listContent');
+    const timelineContent = document.getElementById('timelineContent');
+    const timelineList = document.getElementById('timelineList');
+    const saveRecordBtn = document.getElementById('saveRecordBtn');
+
+    console.log('DOM 元素获取完成');
 
     init();
 
     async function init() {
+        console.log('init() 函数开始执行');
         setupUserInfo();
         setupNav();
         setupEventListeners();
         setTodayDate();
+        
+        await loadAssetTypes();
         await Promise.all([
+            loadStats(),
             loadMembers(),
-            loadAssetTypes(),
             loadRecords()
         ]);
+        
+        const savedType = localStorage.getItem('recordFilterType');
+        if (savedType) {
+            typeFilter.value = savedType;
+            localStorage.removeItem('recordFilterType');
+            applyFilters();
+        }
+        console.log('init() 函数执行完成');
     }
 
     function setupUserInfo() {
@@ -291,14 +504,17 @@
         if (isAdmin) {
             navMembers.style.display = 'none';
             navAssetTypes.style.display = 'none';
-        }
-        if (isMember) {
-            navMembers.style.display = 'none';
-            navAssetTypes.style.display = 'none';
+        } else {
+            if (isMember) {
+                navMembers.style.display = 'none';
+                navAssetTypes.style.display = 'none';
+            }
         }
     }
 
     function setupEventListeners() {
+        console.log('setupEventListeners() 开始');
+        
         menuBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
         logoutBtn.addEventListener('click', () => {
             if (confirm('确定要退出登录吗？')) API.logout();
@@ -306,18 +522,33 @@
 
         memberFilter.addEventListener('change', applyFilters);
         typeFilter.addEventListener('change', applyFilters);
-        statusFilter.addEventListener('change', applyFilters);
         startDateInput.addEventListener('change', applyFilters);
         endDateInput.addEventListener('change', applyFilters);
         searchKeyword.addEventListener('input', Utils.debounce(applyFilters, 300));
 
-        addRecordBtn.addEventListener('click', openModal);
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+        });
+
+        console.log('addRecordBtn:', addRecordBtn);
+        addRecordBtn.addEventListener('click', () => {
+            console.log('点击了添加记录按钮');
+            openModal();
+        });
+
         exportBtn.addEventListener('click', exportRecords);
 
         closeModalBtn.addEventListener('click', closeModal);
         cancelBtn.addEventListener('click', closeModal);
         recordModal.addEventListener('click', e => {
             if (e.target === recordModal) closeModal();
+        });
+
+        closeDetailModal.addEventListener('click', closeDetail);
+        closeDetailBtn.addEventListener('click', closeDetail);
+        editFromDetailBtn.addEventListener('click', editFromDetail);
+        detailModal.addEventListener('click', e => {
+            if (e.target === detailModal) closeDetail();
         });
 
         closeDeleteBtn.addEventListener('click', closeDeleteModal);
@@ -327,12 +558,73 @@
         });
 
         confirmDeleteBtn.addEventListener('click', doDelete);
-        recordForm.addEventListener('submit', handleSubmit);
+
+        console.log('绑定表单事件');
+        recordForm.addEventListener('submit', function(e) {
+            console.log('表单提交事件触发');
+            e.preventDefault();
+            handleSubmit();
+        });
+
+        saveRecordBtn.addEventListener('click', function(e) {
+            console.log('保存按钮点击事件触发');
+            e.preventDefault();
+            handleSubmit();
+        });
+
+        console.log('setupEventListeners() 执行完成');
+    }
+
+    function switchTab(tab) {
+        currentTab = tab;
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tab);
+        });
+        listContent.style.display = tab === 'list' ? 'block' : 'none';
+        timelineContent.style.display = tab === 'timeline' ? 'block' : 'none';
+        if (tab === 'timeline') {
+            renderTimeline();
+        }
     }
 
     function setTodayDate() {
         const today = new Date().toISOString().split('T')[0];
-        document.getElementById('recordDate').value = today;
+        const recordDateEl = document.getElementById('recordDate');
+        if (recordDateEl) {
+            recordDateEl.value = today;
+        }
+    }
+
+    async function loadStats() {
+        try {
+            const res = await API.getStats();
+            if (res.success) {
+                renderStats(res.data);
+            }
+        } catch (e) {
+            console.error('Failed to load stats:', e);
+        }
+    }
+
+    function renderStats(stats) {
+        const totalRecords = stats.totalRecords || 0;
+        const monthlyNew = stats.monthlyNew || 0;
+        const totalValue = stats.totalValue || 0;
+
+        statsGrid.innerHTML = `
+            <div class="card stat-card">
+                <div class="stat-label">总记录数</div>
+                <div class="stat-value">${totalRecords}</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-label">本月新增</div>
+                <div class="stat-value">+${monthlyNew}</div>
+            </div>
+            <div class="card stat-card">
+                <div class="stat-label">总资产</div>
+                <div class="stat-value">${Utils.formatMoney(totalValue)}</div>
+            </div>
+        `;
     }
 
     async function loadMembers() {
@@ -354,13 +646,13 @@
         });
         memberFilter.innerHTML = options;
 
-        const select = document.getElementById('memberId');
-        if (select) {
-            if (isMember) {
+        const memberIdSelect = document.getElementById('memberId');
+        if (memberIdSelect) {
+            if (isMember || isAdmin) {
                 memberFormGroup.style.display = 'none';
             } else {
                 memberFormGroup.style.display = '';
-                select.innerHTML = members.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+                memberIdSelect.innerHTML = members.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
             }
         }
     }
@@ -384,9 +676,9 @@
         });
         typeFilter.innerHTML = options;
 
-        const select = document.getElementById('recordType');
-        if (select) {
-            select.innerHTML = assetTypes.map(t => `<option value="${t.type_value}">${t.display_name}</option>`).join('');
+        const recordTypeSelect = document.getElementById('recordType');
+        if (recordTypeSelect) {
+            recordTypeSelect.innerHTML = assetTypes.map(t => `<option value="${t.type_value}">${t.display_name}</option>`).join('');
         }
     }
 
@@ -395,7 +687,7 @@
             const res = await API.getRecords();
             if (res.success) {
                 allRecords = res.data;
-                renderRecords(allRecords);
+                applyFilters();
             }
         } catch (e) {
             console.error('Failed to load records:', e);
@@ -411,9 +703,6 @@
         const type = typeFilter.value;
         if (type) filtered = filtered.filter(r => r.type === type);
 
-        const status = statusFilter.value;
-        if (status) filtered = filtered.filter(r => r.status === status);
-
         const start = startDateInput.value;
         if (start) filtered = filtered.filter(r => r.date >= start);
 
@@ -426,12 +715,16 @@
             (r.member_name && r.member_name.toLowerCase().includes(keyword))
         );
 
-        renderRecords(filtered);
+        if (currentTab === 'list') {
+            renderRecords(filtered);
+        } else {
+            renderTimeline(filtered);
+        }
     }
 
     function renderRecords(records) {
         if (!records.length) {
-            recordsTableBody.innerHTML = '<tr><td colspan="7" class="empty-state">暂无数据</td></tr>';
+            recordsTableBody.innerHTML = '<tr><td colspan="6" class="empty-state">暂无数据</td></tr>';
             return;
         }
 
@@ -459,34 +752,162 @@
                         </div>` : ''}
                     </td>
                     <td>${Utils.formatDate(r.date)}</td>
-                    <td><span class="badge ${Utils.getStatusBadgeClass(r.status)}">${Utils.getStatusLabel(r.status)}</span></td>
                     <td style="text-align: right;">
-                        <button class="action-btn edit-btn" data-id="${r.id}" onclick="openEditModal(${r.id})">编辑</button>
-                        <button class="action-btn delete-btn" data-id="${r.id}" onclick="confirmDelete(${r.id})">删除</button>
+                        <button class="action-btn view-btn" onclick="openDetail(${r.id})">查看</button>
+                        <button class="action-btn edit-btn" onclick="openEditModal(${r.id})">编辑</button>
+                        <button class="action-btn delete-btn" onclick="confirmDelete(${r.id})">删除</button>
                     </td>
                 </tr>
             `;
         }).join('');
     }
 
-    window.openEditModal = openEditModal;
-    function openEditModal(id) {
-        editingId = id;
+    function renderTimeline(records) {
+        const timelineRecords = records || allRecords;
+        if (!timelineRecords.length) {
+            timelineList.innerHTML = '<div class="empty-state">暂无变更记录</div>';
+            return;
+        }
+
+        const typeColors = {};
+        assetTypes.forEach(t => typeColors[t.type_value] = t.color);
+
+        const sortedRecords = [...timelineRecords].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        timelineList.innerHTML = sortedRecords.map(r => {
+            const type = assetTypes.find(t => t.type_value === r.type);
+            const change = r.previous_value != null ? r.value - r.previous_value : null;
+
+            return `
+                <div class="timeline-item">
+                    <div class="timeline-dot" style="background: ${type?.color || '#8b5cf6'};"></div>
+                    <div class="timeline-content">
+                        <div class="timeline-header">
+                            <span class="timeline-title">${r.name}</span>
+                            <span class="timeline-date">${Utils.formatDate(r.date)}</span>
+                        </div>
+                        <div class="timeline-body">
+                            <div class="timeline-member">
+                                <div class="timeline-avatar">${Utils.getShortName(r.member_name || 'U')}</div>
+                                <span>${r.member_name || ''}</span>
+                            </div>
+                            <div class="timeline-asset">
+                                <span class="timeline-type-dot" style="background: ${type?.color || '#8b5cf6'};"></span>
+                                <span>${type?.display_name || r.type}</span>
+                            </div>
+                        </div>
+                        <div class="timeline-values">
+                            ${r.previous_value != null ? `<span class="value-old">${Utils.formatMoney(r.previous_value)}</span>` : ''}
+                            <span>→</span>
+                            <span class="value-new">${Utils.formatMoney(r.value)}</span>
+                            ${change != null ? `<span class="${change >= 0 ? 'change-positive' : 'change-negative'}">
+                                ${change >= 0 ? '↑' : '↓'} ${Utils.formatMoney(Math.abs(change))}
+                            </span>` : ''}
+                        </div>
+                        <div style="margin-top: 8px;">
+                            <button class="action-btn view-btn" onclick="openDetail(${r.id})">查看详情</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    window.openDetail = openDetail;
+    function openDetail(id) {
         const record = allRecords.find(r => r.id === id);
         if (!record) return;
 
-        modalTitle.textContent = '编辑记录';
-        document.getElementById('recordId').value = record.id;
-        document.getElementById('recordName').value = record.name;
-        document.getElementById('recordType').value = record.type;
-        document.getElementById('recordValue').value = record.value;
-        document.getElementById('recordPrevValue').value = record.previous_value;
-        document.getElementById('recordDate').value = record.date;
-        document.getElementById('recordStatus').value = record.status;
-        document.getElementById('recordNote').value = record.note || '';
+        const type = assetTypes.find(t => t.type_value === record.type);
+        const change = record.previous_value != null ? record.value - record.previous_value : null;
+
+        document.getElementById('detailContent').innerHTML = `
+            <div class="detail-header">
+                <div class="detail-avatar">${Utils.getShortName(record.member_name || 'U')}</div>
+                <div class="detail-info">
+                    <h3>${record.name}</h3>
+                    <p style="color: var(--text-muted); font-size: 13px;">${record.member_name || ''}</p>
+                </div>
+            </div>
+            <div class="detail-grid">
+                <div class="detail-row">
+                    <span class="detail-label">资产类型</span>
+                    <span class="detail-value" style="display: inline-flex; align-items: center; gap: 8px;">
+                        <span style="width: 12px; height: 12px; border-radius: 50%; background: ${type?.color || '#8b5cf6'};"></span>
+                        ${type?.display_name || record.type}
+                    </span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">当前价值</span>
+                    <span class="detail-value">${Utils.formatMoney(record.value)}</span>
+                </div>
+                ${change != null ? `
+                <div class="detail-row">
+                    <span class="detail-label">价值变动</span>
+                    <span class="detail-value" style="color: ${change >= 0 ? 'var(--success)' : 'var(--danger)'};">
+                        ${change >= 0 ? '↑' : '↓'} ${Utils.formatMoney(Math.abs(change))}
+                    </span>
+                </div>
+                ` : ''}
+                <div class="detail-row">
+                    <span class="detail-label">记录日期</span>
+                    <span class="detail-value">${Utils.formatDate(record.date)}</span>
+                </div>
+            </div>
+            ${record.note ? `<div class="detail-note">${record.note}</div>` : ''}
+            <div class="detail-footer">
+                创建时间：${record.created_at || '未知'}
+            </div>
+        `;
+
+        detailModal.classList.add('active');
+    }
+
+    function closeDetail() {
+        detailModal.classList.remove('active');
+    }
+
+    let detailRecordId = null;
+    function editFromDetail() {
+        const record = allRecords.find(r => r.id === detailRecordId);
+        closeDetail();
+        if (record) {
+            openEditModal(record.id);
+        }
+    }
+
+    window.openEditModal = openEditModal;
+    function openEditModal(id) {
+        editingId = id;
+        detailRecordId = id;
+        const record = allRecords.find(r => r.id === id);
+        if (!record) return;
+
+        modalTitle.textContent = '编辑资产记录';
+        const recordIdInput = document.getElementById('recordId');
+        if (recordIdInput) recordIdInput.value = record.id;
+
+        const recordNameInput = document.getElementById('recordName');
+        if (recordNameInput) recordNameInput.value = record.name;
+
+        const recordTypeSelect = document.getElementById('recordType');
+        if (recordTypeSelect) recordTypeSelect.value = record.type;
+
+        const recordValueInput = document.getElementById('recordValue');
+        if (recordValueInput) recordValueInput.value = record.value;
+
+        const recordPrevValueInput = document.getElementById('recordPrevValue');
+        if (recordPrevValueInput) recordPrevValueInput.value = record.previous_value;
+
+        const recordDateInput = document.getElementById('recordDate');
+        if (recordDateInput) recordDateInput.value = record.date;
+
+        const recordNoteInput = document.getElementById('recordNote');
+        if (recordNoteInput) recordNoteInput.value = record.note || '';
 
         if (isHead) {
-            document.getElementById('memberId').value = record.member_id;
+            const memberIdSelect = document.getElementById('memberId');
+            if (memberIdSelect) memberIdSelect.value = record.member_id;
         }
 
         recordModal.classList.add('active');
@@ -494,12 +915,14 @@
 
     function openModal() {
         editingId = null;
-        modalTitle.textContent = '添加记录';
+        detailRecordId = null;
+        modalTitle.textContent = '添加资产记录';
         recordForm.reset();
         setTodayDate();
 
         if (isHead && members.length) {
-            document.getElementById('memberId').value = members[0].id;
+            const memberIdSelect = document.getElementById('memberId');
+            if (memberIdSelect) memberIdSelect.value = members[0].id;
         }
 
         recordModal.classList.add('active');
@@ -529,7 +952,7 @@
             if (res.success) {
                 Utils.toast('删除成功');
                 closeDeleteModal();
-                loadRecords();
+                await Promise.all([loadRecords(), loadStats()]);
             } else {
                 Utils.toast(res.message || '删除失败', 'error');
             }
@@ -538,23 +961,50 @@
         }
     }
 
-    async function handleSubmit(e) {
-        e.preventDefault();
+    async function handleSubmit() {
+        console.log('handleSubmit() 函数开始执行');
 
-        let memberId = user?.memberId;
+        let memberIdVal = user?.memberId;
         if (isHead) {
-            memberId = document.getElementById('memberId').value;
+            const memberIdSelect = document.getElementById('memberId');
+            if (memberIdSelect) memberIdVal = parseInt(memberIdSelect.value, 10);
+        }
+        // 确保 memberId 是数字
+        if (typeof memberIdVal === 'string') {
+            memberIdVal = parseInt(memberIdVal, 10);
+        }
+
+        const recordTypeVal = document.getElementById('recordType').value;
+        const recordNameVal = document.getElementById('recordName').value;
+        const recordValueVal = parseFloat(document.getElementById('recordValue').value);
+        const recordPrevValueVal = document.getElementById('recordPrevValue').value ? parseFloat(document.getElementById('recordPrevValue').value) : null;
+        const recordDateVal = document.getElementById('recordDate').value;
+        const recordNoteVal = document.getElementById('recordNote').value;
+
+        console.log('要提交的数据:', {
+            memberId: memberIdVal,
+            memberIdType: typeof memberIdVal,
+            type: recordTypeVal,
+            name: recordNameVal,
+            value: recordValueVal,
+            previousValue: recordPrevValueVal,
+            date: recordDateVal,
+            note: recordNoteVal
+        });
+
+        if (!recordTypeVal || !recordNameVal || !recordValueVal || !recordDateVal) {
+            Utils.toast('请填写所有必填项', 'error');
+            return;
         }
 
         const data = {
-            member_id: memberId,
-            type: document.getElementById('recordType').value,
-            name: document.getElementById('recordName').value,
-            value: parseFloat(document.getElementById('recordValue').value),
-            previous_value: document.getElementById('recordPrevValue').value ? parseFloat(document.getElementById('recordPrevValue').value) : null,
-            date: document.getElementById('recordDate').value,
-            status: document.getElementById('recordStatus').value,
-            note: document.getElementById('recordNote').value
+            memberId: memberIdVal,
+            type: recordTypeVal,
+            name: recordNameVal,
+            value: recordValueVal,
+            previousValue: recordPrevValueVal,
+            date: recordDateVal,
+            note: recordNoteVal
         };
 
         try {
@@ -565,14 +1015,17 @@
                 res = await API.createRecord(data);
             }
 
+            console.log('API 响应:', res);
+
             if (res.success) {
                 Utils.toast(editingId ? '更新成功' : '添加成功');
                 closeModal();
-                loadRecords();
+                await Promise.all([loadRecords(), loadStats()]);
             } else {
                 Utils.toast(res.message || '操作失败', 'error');
             }
         } catch (e) {
+            console.error('提交错误:', e);
             Utils.toast('网络错误，请稍后重试', 'error');
         }
     }
@@ -581,7 +1034,6 @@
         const params = {};
         if (memberFilter.value) params.memberId = memberFilter.value;
         if (typeFilter.value) params.type = typeFilter.value;
-        if (statusFilter.value) params.status = statusFilter.value;
         if (startDateInput.value) params.startDate = startDateInput.value;
         if (endDateInput.value) params.endDate = endDateInput.value;
         API.exportCSV(params);

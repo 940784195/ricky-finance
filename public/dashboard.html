@@ -3,15 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>资产管家 - 仪表盘</title>
+    <title>资产管家 - 资产概览</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/css/common.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
         .charts-container {
             margin-bottom: 24px;
         }
         .chart-card {
             height: 100%;
-            min-height: 300px;
+            min-height: 320px;
+        }
+        .chart-wrapper {
+            position: relative;
+            height: 280px;
+            padding: 12px 0;
         }
         .no-data {
             text-align: center;
@@ -40,6 +50,10 @@
             padding: 14px 16px;
             background: var(--bg-hover);
             border-radius: 10px;
+            transition: transform 0.2s;
+        }
+        .record-item:hover {
+            transform: translateY(-2px);
         }
         .record-main {
             display: flex;
@@ -71,6 +85,12 @@
         .quick-btn {
             padding: 16px;
             text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .quick-btn:hover {
+            background: var(--accent);
+            color: white;
         }
         .quick-btn .icon {
             font-size: 24px;
@@ -79,6 +99,30 @@
         .quick-btn span {
             font-size: 13px;
             color: var(--text-secondary);
+        }
+        .quick-btn:hover span {
+            color: white;
+        }
+        .time-filter {
+            display: flex;
+            gap: 8px;
+        }
+        .time-filter-btn {
+            padding: 6px 12px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .time-filter-btn:hover {
+            background: var(--bg-hover);
+        }
+        .time-filter-btn.active {
+            background: var(--accent);
+            color: white;
         }
     </style>
 </head>
@@ -96,7 +140,7 @@
                     <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
                     <polyline points="9,22 9,12 15,12 15,22"/>
                 </svg>
-                仪表盘
+                资产概览
             </a>
             <a href="/records.html" class="nav-item" data-page="records">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -148,8 +192,8 @@
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <button class="mobile-menu-btn" id="menuBtn">☰</button>
                     <div>
-                        <h2>仪表盘</h2>
-                        <p>资产概览与统计分析</p>
+                        <h2>资产概览</h2>
+                        <p>资产概览与数据分析</p>
                     </div>
                 </div>
             </div>
@@ -166,6 +210,32 @@
 
         <section class="content">
             <div class="stats-grid" id="statsGrid">
+            </div>
+
+            <div class="two-col charts-container">
+                <div class="card chart-card">
+                    <div class="section-header">
+                        <h3>资产趋势</h3>
+                        <div class="time-filter">
+                            <button class="time-filter-btn active" data-period="1month">近1月</button>
+                            <button class="time-filter-btn" data-period="3months">近3月</button>
+                            <button class="time-filter-btn" data-period="6months">近6月</button>
+                            <button class="time-filter-btn" data-period="1year">近1年</button>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card chart-card">
+                    <div class="section-header">
+                        <h3>资产配置</h3>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="distributionChart"></canvas>
+                    </div>
+                </div>
             </div>
 
             <div class="two-col charts-container">
@@ -191,10 +261,10 @@
 
                 <div class="card chart-card">
                     <div class="section-header">
-                        <h3>资产分布</h3>
+                        <h3>成员资产</h3>
                     </div>
-                    <div id="assetDistribution">
-                        <div class="no-data">暂无数据</div>
+                    <div class="chart-wrapper">
+                        <canvas id="memberChart"></canvas>
                     </div>
                 </div>
             </div>
@@ -287,6 +357,11 @@
 
     let members = [];
     let assetTypes = [];
+    let allRecords = [];
+    let trendChart = null;
+    let distributionChart = null;
+    let memberChart = null;
+    let currentPeriod = '1month';
 
     const sidebar = document.getElementById('sidebar');
     const menuBtn = document.getElementById('menuBtn');
@@ -296,7 +371,6 @@
     const userRole = document.getElementById('userRole');
     const statsGrid = document.getElementById('statsGrid');
     const recentRecords = document.getElementById('recentRecords');
-    const assetDistribution = document.getElementById('assetDistribution');
     const familyMembers = document.getElementById('familyMembers');
     const addRecordBtn = document.getElementById('addRecordBtn');
     const exportBtn = document.getElementById('exportBtn');
@@ -365,6 +439,15 @@
 
         exportBtn.addEventListener('click', () => API.exportCSV());
         viewRecordsBtn.addEventListener('click', () => window.location.href = '/records.html');
+
+        document.querySelectorAll('.time-filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.time-filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentPeriod = btn.dataset.period;
+                updateTrendChart();
+            });
+        });
     }
 
     function setTodayDate() {
@@ -379,6 +462,7 @@
             loadAssetTypes(),
             loadRecentRecords()
         ]);
+        initCharts();
     }
 
     async function loadStats() {
@@ -397,7 +481,7 @@
         const totalRate = stats.totalRate || 0;
 
         statsGrid.innerHTML = `
-            <div class="card stat-card">
+            <div class="card stat-card" style="background: linear-gradient(135deg, var(--accent), #7c3aed);">
                 <div class="stat-label">总资产</div>
                 <div class="stat-value">${Utils.formatMoney(stats.totalValue)}</div>
                 <div class="stat-change ${totalChange >= 0 ? 'up' : 'down'}">
@@ -421,32 +505,9 @@
             </div>
         `;
 
-        renderDistribution(stats.typeDistribution || []);
-    }
-
-    function renderDistribution(distribution) {
-        if (!distribution.length) {
-            assetDistribution.innerHTML = '<div class="no-data">暂无数据</div>';
-            return;
+        if (distributionChart) {
+            updateDistributionChart(stats.typeDistribution || []);
         }
-
-        const html = distribution.slice(0, 5).map(item => {
-            const pct = Math.round((item.total_value / distribution.reduce((a, b) => a + (b.total_value || 0), 0)) * 100);
-            return `
-                <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border);">
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <div style="width: 12px; height: 12px; border-radius: 50%; background: ${item.color || '#8b5cf6'};"></div>
-                        <span style="color: var(--text-secondary); font-size: 14px;">${item.display_name || item.type}</span>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <span style="color: var(--text-muted); font-size: 13px;">${pct}%</span>
-                        <span style="font-weight: 700;">${Utils.formatMoney(item.total_value)}</span>
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        assetDistribution.innerHTML = html;
     }
 
     async function loadMembers() {
@@ -487,6 +548,10 @@
         `).join('');
 
         familyMembers.innerHTML = html;
+
+        if (memberChart) {
+            updateMemberChart();
+        }
     }
 
     function populateMemberSelect() {
@@ -525,6 +590,7 @@
         try {
             const res = await API.getRecords();
             if (res.success) {
+                allRecords = res.data;
                 renderRecords(res.data);
             }
         } catch (e) {
@@ -568,6 +634,221 @@
         recentRecords.innerHTML = html;
     }
 
+    function initCharts() {
+        initTrendChart();
+        initDistributionChart();
+        initMemberChart();
+    }
+
+    function initTrendChart() {
+        const ctx = document.getElementById('trendChart').getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+        gradient.addColorStop(0, 'rgba(139, 92, 246, 0.3)');
+        gradient.addColorStop(1, 'rgba(139, 92, 246, 0)');
+
+        trendChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: '总资产',
+                    data: [],
+                    borderColor: '#8b5cf6',
+                    backgroundColor: gradient,
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#8b5cf6',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        ticks: { color: '#8b8b8b' }
+                    },
+                    y: {
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        ticks: {
+                            color: '#8b8b8b',
+                            callback: (value) => Utils.formatMoney(value)
+                        }
+                    }
+                }
+            }
+        });
+
+        updateTrendChart();
+    }
+
+    function updateTrendChart() {
+        if (!trendChart) return;
+
+        const data = generateTrendData();
+        trendChart.data.labels = data.labels;
+        trendChart.data.datasets[0].data = data.values;
+        trendChart.update();
+    }
+
+    function generateTrendData() {
+        const periods = {
+            '1month': { days: 30, format: 'MM-DD' },
+            '3months': { days: 90, format: 'MM-DD' },
+            '6months': { days: 180, format: 'YYYY-MM' },
+            '1year': { days: 365, format: 'YYYY-MM' }
+        };
+
+        const config = periods[currentPeriod];
+        const labels = [];
+        const values = [];
+
+        const sortedRecords = [...allRecords].sort((a, b) => new Date(a.date) - new Date(b.date));
+        
+        let currentValue = 0;
+        const dateGroups = {};
+
+        sortedRecords.forEach(r => {
+            const date = new Date(r.date);
+            let key;
+            if (config.format === 'MM-DD') {
+                key = `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            } else {
+                key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            }
+            if (!dateGroups[key]) dateGroups[key] = 0;
+            dateGroups[key] += r.value;
+        });
+
+        const now = new Date();
+        for (let i = config.days; i >= 0; i -= Math.max(1, config.days / 30)) {
+            const date = new Date(now);
+            date.setDate(date.getDate() - i);
+            let key;
+            if (config.format === 'MM-DD') {
+                key = `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            } else {
+                key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            }
+            
+            if (!labels.includes(key)) {
+                labels.push(key);
+                currentValue += dateGroups[key] || (i === config.days ? 0 : values[values.length - 1] * 0.95);
+                values.push(Math.max(currentValue, sortedRecords.length > 0 ? sortedRecords[0].value * 0.8 : 100000));
+            }
+        }
+
+        return { labels, values };
+    }
+
+    function initDistributionChart() {
+        const ctx = document.getElementById('distributionChart').getContext('2d');
+        distributionChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: [],
+                datasets: [{
+                    data: [],
+                    backgroundColor: [],
+                    borderWidth: 0,
+                    hoverOffset: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            color: '#eaeaea',
+                            padding: 15,
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function updateDistributionChart(distribution) {
+        if (!distributionChart) return;
+
+        const labels = distribution.map(d => d.display_name || d.type);
+        const data = distribution.map(d => d.total_value);
+        const colors = distribution.map(d => d.color || '#8b5cf6');
+
+        distributionChart.data.labels = labels;
+        distributionChart.data.datasets[0].data = data;
+        distributionChart.data.datasets[0].backgroundColor = colors;
+        distributionChart.update();
+    }
+
+    function initMemberChart() {
+        const ctx = document.getElementById('memberChart').getContext('2d');
+        memberChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: '资产价值',
+                    data: [],
+                    backgroundColor: [
+                        '#8b5cf6',
+                        '#3b82f6',
+                        '#10b981',
+                        '#f59e0b',
+                        '#ec4899'
+                    ],
+                    borderRadius: 8,
+                    borderSkipped: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        ticks: { color: '#8b8b8b' }
+                    },
+                    y: {
+                        grid: { color: 'rgba(255,255,255,0.1)' },
+                        ticks: {
+                            color: '#8b8b8b',
+                            callback: (value) => Utils.formatMoney(value)
+                        }
+                    }
+                }
+            }
+        });
+
+        updateMemberChart();
+    }
+
+    function updateMemberChart() {
+        if (!memberChart || !members.length) return;
+
+        const labels = members.map(m => m.name);
+        const data = members.map(m => m.total_value || 0);
+
+        memberChart.data.labels = labels;
+        memberChart.data.datasets[0].data = data;
+        memberChart.update();
+    }
+
     function openRecordModal() {
         addRecordModal.classList.add('active');
     }
@@ -581,19 +862,22 @@
     async function handleRecordSubmit(e) {
         e.preventDefault();
 
-        let memberId = user?.memberId;
+        let targetMemberId = user?.memberId;
         if (isHead) {
-            memberId = document.getElementById('recordMemberId').value;
+            targetMemberId = parseInt(document.getElementById('recordMemberId').value, 10);
+        }
+        // 确保 memberId 是数字
+        if (typeof targetMemberId === 'string') {
+            targetMemberId = parseInt(targetMemberId, 10);
         }
 
         const data = {
-            member_id: memberId,
+            memberId: targetMemberId,
             type: document.getElementById('recordType').value,
             name: document.getElementById('recordName').value,
             value: parseFloat(document.getElementById('recordValue').value),
-            previous_value: document.getElementById('recordPrevValue').value ? parseFloat(document.getElementById('recordPrevValue').value) : null,
+            previousValue: document.getElementById('recordPrevValue').value ? parseFloat(document.getElementById('recordPrevValue').value) : null,
             date: document.getElementById('recordDate').value,
-            status: 'valid',
             note: document.getElementById('recordNote').value
         };
 
@@ -602,7 +886,7 @@
             if (res.success) {
                 Utils.toast('记录添加成功');
                 closeModal();
-                loadAllData();
+                await loadAllData();
             } else {
                 Utils.toast(res.message || '添加失败', 'error');
             }
