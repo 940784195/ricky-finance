@@ -30,7 +30,7 @@ router.get('/', authMiddleware, (req, res) => {
     whereConnector = 'AND';
   }
 
-  // 资产相关统计 - 按资产名称去重，仅取每个名称的最新记录
+  // 资产相关统计 - 按资产名称去重，仅取每个名称的最新记录（按日期取最新）
   const deduplicatedRecords = db.prepare(`
     SELECT r.id, r.name, r.value, r.type, r.status, r.created_at, r.date
     FROM records r
@@ -41,9 +41,16 @@ router.get('/', authMiddleware, (req, res) => {
       FROM records r2
       ${recordsWhere}
       ${whereConnector} r2.status = 'valid'
+      AND r2.date = (
+        SELECT MAX(r3.date)
+        FROM records r3
+        ${recordsWhere}
+        ${whereConnector} r3.status = 'valid'
+        AND r3.name = r2.name
+      )
       GROUP BY r2.name
     )
-  `).all(...recordsParams, ...recordsParams);
+  `).all(...recordsParams, ...recordsParams, ...recordsParams);
 
   const totalValue = deduplicatedRecords.reduce((sum, r) => sum + r.value, 0);
   const totalRecords = db.prepare(`
@@ -121,13 +128,21 @@ router.get('/', authMiddleware, (req, res) => {
         FROM records r2
         ${recordsWhere}
         ${whereConnector} r2.status = 'valid'
+        AND r2.date = (
+          SELECT MAX(r3.date)
+          FROM records r3
+          ${recordsWhere}
+          ${whereConnector} r3.status = 'valid'
+          AND r3.type = r2.type
+          AND r3.name = r2.name
+        )
         GROUP BY r2.type, r2.name
       )
     ) latest
     LEFT JOIN asset_types at ON latest.type = at.type_value
     GROUP BY latest.type
     ORDER BY total_value DESC
-  `).all(...recordsParams, ...recordsParams);
+  `).all(...recordsParams, ...recordsParams, ...recordsParams);
 
   res.json({
     success: true,

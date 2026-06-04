@@ -79,7 +79,7 @@ describe('Records API', () => {
   describe('POST /api/records', () => {
     it('should create a new record without previousValue', async () => {
       const newRecord = {
-        customerId: '1',
+        memberId: testMemberId,
         type: 'bond',
         name: '测试债券',
         value: 100000,
@@ -95,7 +95,7 @@ describe('Records API', () => {
 
     it('should ignore previousValue if provided', async () => {
       const newRecord = {
-        customerId: '1',
+        memberId: testMemberId,
         type: 'stock',
         name: '测试股票',
         value: 150000,

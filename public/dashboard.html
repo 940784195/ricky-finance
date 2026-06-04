@@ -701,10 +701,13 @@
         const labels = [];
         const values = [];
 
+        // 1. 按日期升序排序所有记录（从早到晚）
         const sortedRecords = [...allRecords].sort((a, b) => new Date(a.date) - new Date(b.date));
-        
-        let currentValue = 0;
-        const dateGroups = {};
+
+        // 2. 构建按日期排序的时间线快照
+        //    timeline 数组的每个元素是 { dateStr, assetValues: { 资产名称: 最新值 } }
+        const timeline = [];
+        const currentAssets = {}; // 跟踪每个资产的最新值
 
         sortedRecords.forEach(r => {
             const date = new Date(r.date);
@@ -714,12 +717,29 @@
             } else {
                 key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
             }
-            if (!dateGroups[key]) dateGroups[key] = 0;
-            dateGroups[key] += r.value;
+
+            // 更新该资产到最新值
+            currentAssets[r.name] = r.value;
+
+            // 查找 timeline 中是否已有相同 key 的条目
+            const existingEntry = timeline.find(entry => entry.dateStr === key);
+            if (existingEntry) {
+                // 同一日期有多个记录，更新该日期的资产快照
+                existingEntry.assetValues = { ...currentAssets };
+            } else {
+                // 新日期，保存当前所有资产的快照
+                timeline.push({
+                    dateStr: key,
+                    assetValues: { ...currentAssets }
+                });
+            }
         });
 
+        // 3. 生成图表需要的日期范围
         const now = new Date();
-        for (let i = config.days; i >= 0; i -= Math.max(1, config.days / 30)) {
+        const step = Math.max(1, Math.floor(config.days / 30));
+
+        for (let i = config.days; i >= 0; i -= step) {
             const date = new Date(now);
             date.setDate(date.getDate() - i);
             let key;
@@ -728,11 +748,28 @@
             } else {
                 key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
             }
-            
+
             if (!labels.includes(key)) {
                 labels.push(key);
-                currentValue += dateGroups[key] || (i === config.days ? 0 : values[values.length - 1] * 0.95);
-                values.push(Math.max(currentValue, sortedRecords.length > 0 ? sortedRecords[0].value * 0.8 : 100000));
+
+                // 4. 查找该日期之前最新的资产快照
+                let latestSnapshot = null;
+                for (const entry of timeline) {
+                    // 简单字符串比较在 MM-DD 和 YYYY-MM 格式下都有效
+                    if (entry.dateStr <= key) {
+                        latestSnapshot = entry.assetValues;
+                    } else {
+                        break;
+                    }
+                }
+
+                // 5. 计算总资产
+                let dayTotal = 0;
+                if (latestSnapshot) {
+                    dayTotal = Object.values(latestSnapshot).reduce((sum, val) => sum + val, 0);
+                }
+
+                values.push(dayTotal);
             }
         }
 

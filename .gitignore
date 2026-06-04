@@ -73,16 +73,23 @@ dist/
 *.exe
 *.app
 
-# Database files - 注释掉以便保留数据
-# *.db
-# *.sqlite
-# SQLite temporary files
+# Database files
+*.db
+*.sqlite
 *.db-shm
 *.db-wal
+server/data/*.db
+server/data/*.db-*
 
 # Temp files
 tmp/
 temp/
+
+# Debug and test scripts
+debug-*.js
+check-*.js
+test-*.js
+*.test.js
 
 # Environment specific
 .env*

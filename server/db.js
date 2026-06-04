@@ -2,41 +2,66 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 
-const DB_PATH = path.join(__dirname, 'data', 'users.db');
+// 数据库连接缓存
+const dbConnections = {};
 
-let db;
+// 当前活动的数据库名称（可通过环境变量或 setActiveDb 设置）
+let activeDbName = process.env.NODE_ENV === 'test' ? 'test' : 'users';
 
-function getDb() {
-  if (!db) {
-    db = new Database(DB_PATH);
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
-    initTables();
-    seedDefaultData();
-  }
-  return db;
+function getDbPath(dbName = activeDbName) {
+  return path.join(__dirname, 'data', `${dbName}.db`);
 }
 
-function initTables() {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'member' CHECK(role IN ('admin', 'head', 'member')),
-      member_id INTEGER,
-      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
-      FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE SET NULL
-    )
-  `);
+function setActiveDb(dbName) {
+  activeDbName = dbName;
+}
 
+function getActiveDbName() {
+  return activeDbName;
+}
+
+function getDb(dbName = activeDbName) {
+  if (!dbConnections[dbName]) {
+    const dbPath = getDbPath(dbName);
+    const db = new Database(dbPath);
+    db.pragma('journal_mode = WAL');
+    db.pragma('foreign_keys = ON');
+    initTables(db);
+    // 只在非测试数据库时初始化默认数据
+    if (dbName === 'users') {
+      seedDefaultData(db);
+    }
+    dbConnections[dbName] = db;
+  }
+  return dbConnections[dbName];
+}
+
+function setDb(dbName, instance) {
+  dbConnections[dbName] = instance;
+}
+
+function closeDb(dbName = 'users') {
+  if (dbConnections[dbName]) {
+    dbConnections[dbName].close();
+    delete dbConnections[dbName];
+  }
+}
+
+function closeAllDbs() {
+  Object.keys(dbConnections).forEach(dbName => {
+    dbConnections[dbName].close();
+    delete dbConnections[dbName];
+  });
+}
+
+function initTables(db) {
+  // 先创建无依赖的表
   db.exec(`
     CREATE TABLE IF NOT EXISTS families (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       family_name TEXT NOT NULL,
       head_id INTEGER,
-      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
-      FOREIGN KEY (head_id) REFERENCES members(id) ON DELETE SET NULL
+      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
     )
   `);
 
@@ -51,6 +76,17 @@ function initTables() {
       FOREIGN KEY (family_id) REFERENCES families(id) ON DELETE CASCADE
     )
   `);
+
+  // 添加 families 的外键约束（依赖 members 表）
+  try {
+    db.exec(`
+      ALTER TABLE families
+      ADD COLUMN IF NOT EXISTS head_id_ref INTEGER
+      REFERENCES members(id) ON DELETE SET NULL
+    `);
+  } catch (e) {
+    // 忽略已存在的错误
+  }
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS asset_types (
@@ -84,10 +120,22 @@ function initTables() {
     )
   `);
 
-  initIndexes();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'member' CHECK(role IN ('admin', 'head', 'member')),
+      member_id INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+      FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE SET NULL
+    )
+  `);
+
+  initIndexes(db);
 }
 
-function initIndexes() {
+function initIndexes(db) {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_records_member_family ON records(member_id, family_id)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_records_type_date ON records(type, date DESC)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_records_name_date ON records(name, date DESC)`);
@@ -96,7 +144,7 @@ function initIndexes() {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_asset_types_family ON asset_types(family_id, type_value)`);
 }
 
-function seedDefaultData() {
+function seedDefaultData(db) {
   const userCount = db.prepare('SELECT COUNT(*) as cnt FROM users').get();
   if (userCount.cnt > 0) return;
 
@@ -182,6 +230,12 @@ function verifyPassword(inputPassword, storedHash) {
 
 module.exports = {
   getDb,
+  getDbPath,
+  setDb,
+  setActiveDb,
+  getActiveDbName,
+  closeDb,
+  closeAllDbs,
   findUserByUsername,
   findUserById,
   findUserWithMember,

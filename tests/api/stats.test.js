@@ -23,7 +23,12 @@ describe('Stats API', () => {
 
       const stats = res.body.data;
       expect(stats.totalValue).toBeGreaterThan(0);
-      expect(stats.totalRecords).toBe(8);
+      expect(stats.totalRecords).toBe(10);
+      expect(stats.memberCount).toBeGreaterThan(0);
+      expect(stats.activeMembers).toBeGreaterThanOrEqual(0);
+      expect(stats.monthlyNew).toBeGreaterThanOrEqual(0);
+      expect(stats.pendingCount).toBeGreaterThanOrEqual(0);
+      expect(Array.isArray(stats.typeDistribution)).toBe(true);
     });
   });
 });
