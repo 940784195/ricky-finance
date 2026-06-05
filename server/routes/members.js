@@ -32,17 +32,24 @@ router.get('/', authMiddleware, (req, res) => {
     `).all(req.user.memberId);
   }
 
-  // 补充成员资产统计
+  // 补充成员资产统计（按 member_id + name 去重，仅取最新记录）
   for (let member of members) {
-    const stats = db.prepare(`
-      SELECT 
-        COUNT(*) as record_count,
-        SUM(CASE WHEN status = 'valid' THEN value ELSE 0 END) as total_value
+    const validRecords = db.prepare(`
+      SELECT id, name, value, date
       FROM records
-      WHERE member_id = ?
-    `).get(member.id);
-    member.record_count = stats.record_count;
-    member.total_value = stats.total_value || 0;
+      WHERE member_id = ? AND status = 'valid'
+      ORDER BY name, date DESC, id DESC
+    `).all(member.id);
+
+    const latestMap = {};
+    validRecords.forEach(r => {
+      if (!latestMap[r.name]) {
+        latestMap[r.name] = r;
+      }
+    });
+    const dedupedRecords = Object.values(latestMap);
+    member.record_count = dedupedRecords.length;
+    member.total_value = dedupedRecords.reduce((sum, r) => sum + r.value, 0);
   }
 
   res.json({ success: true, data: members });

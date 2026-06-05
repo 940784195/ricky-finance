@@ -1,16 +1,12 @@
 const request = require('supertest');
 const app = require('../../server/index');
-const { seedTestData, cleanupTestData, adminToken, headToken, memberToken, testMemberId } = require('../helpers/setup');
+const { resetToSeedData, getAdminToken, getHeadToken, getMemberToken, getTestMemberId } = require('../helpers/setup');
 
 beforeEach(() => {
-  seedTestData();
+  resetToSeedData();
 });
 
-afterEach(() => {
-  cleanupTestData();
-});
-
-function authRequest(req, token = adminToken) {
+function authRequest(req, token = getAdminToken()) {
   return req.set('Authorization', `Bearer ${token}`);
 }
 
@@ -24,13 +20,13 @@ describe('Records API', () => {
     });
 
     it('should return family records for head', async () => {
-      const res = await authRequest(request(app).get('/api/records'), headToken);
+      const res = await authRequest(request(app).get('/api/records'), getHeadToken());
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
     });
 
     it('should return personal records for member', async () => {
-      const res = await authRequest(request(app).get('/api/records'), memberToken);
+      const res = await authRequest(request(app).get('/api/records'), getMemberToken());
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
     });
@@ -51,14 +47,14 @@ describe('Records API', () => {
     });
 
     it('should return family asset names for head', async () => {
-      const res = await authRequest(request(app).get('/api/records/asset-names'), headToken);
+      const res = await authRequest(request(app).get('/api/records/asset-names'), getHeadToken());
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(Array.isArray(res.body.data)).toBe(true);
     });
 
     it('should return personal asset names for member', async () => {
-      const res = await authRequest(request(app).get('/api/records/asset-names'), memberToken);
+      const res = await authRequest(request(app).get('/api/records/asset-names'), getMemberToken());
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(Array.isArray(res.body.data)).toBe(true);
@@ -79,7 +75,7 @@ describe('Records API', () => {
   describe('POST /api/records', () => {
     it('should create a new record without previousValue', async () => {
       const newRecord = {
-        memberId: testMemberId,
+        memberId: getTestMemberId(),
         type: 'bond',
         name: '测试债券',
         value: 100000,
@@ -87,7 +83,7 @@ describe('Records API', () => {
         note: '测试'
       };
 
-      const res = await authRequest(request(app).post('/api/records').send(newRecord), headToken);
+      const res = await authRequest(request(app).post('/api/records').send(newRecord), getHeadToken());
       expect(res.status).toBe(201);
       expect(res.body.success).toBe(true);
       expect(res.body.data.name).toBe('测试债券');
@@ -95,7 +91,7 @@ describe('Records API', () => {
 
     it('should ignore previousValue if provided', async () => {
       const newRecord = {
-        memberId: testMemberId,
+        memberId: getTestMemberId(),
         type: 'stock',
         name: '测试股票',
         value: 150000,
@@ -104,19 +100,19 @@ describe('Records API', () => {
         note: '测试忽略 previousValue'
       };
 
-      const res = await authRequest(request(app).post('/api/records').send(newRecord), headToken);
+      const res = await authRequest(request(app).post('/api/records').send(newRecord), getHeadToken());
       expect(res.status).toBe(201);
       expect(res.body.success).toBe(true);
     });
 
     it('should return 400 when required fields are missing', async () => {
-      const res = await authRequest(request(app).post('/api/records').send({}), headToken);
+      const res = await authRequest(request(app).post('/api/records').send({}), getHeadToken());
       expect(res.status).toBe(400);
     });
 
     it('should create record for admin with memberId', async () => {
       const newRecord = {
-        memberId: testMemberId,
+        memberId: getTestMemberId(),
         type: 'cash',
         name: '管理员创建的现金',
         value: 10000,
@@ -148,11 +144,11 @@ describe('Records API', () => {
         name: '待更新基金',
         value: 50000,
         date: '2026-05-25'
-      }), headToken);
+      }), getHeadToken());
 
       const updateRes = await authRequest(request(app).put(`/api/records/${createRes.body.data.id}`).send({
         value: 60000
-      }), headToken);
+      }), getHeadToken());
 
       expect(updateRes.status).toBe(200);
       expect(updateRes.body.success).toBe(true);
@@ -165,7 +161,7 @@ describe('Records API', () => {
         name: '管理员更新基金',
         value: 50000,
         date: '2026-05-25'
-      }), headToken);
+      }), getHeadToken());
 
       const updateRes = await authRequest(request(app).put(`/api/records/${createRes.body.data.id}`).send({
         value: 70000
@@ -182,12 +178,12 @@ describe('Records API', () => {
         name: '测试股票',
         value: 100000,
         date: '2026-05-25'
-      }), headToken);
+      }), getHeadToken());
 
       const updateRes = await authRequest(request(app).put(`/api/records/${createRes.body.data.id}`).send({
         value: 110000,
         previousValue: 90000
-      }), headToken);
+      }), getHeadToken());
 
       expect(updateRes.status).toBe(200);
       expect(updateRes.body.success).toBe(true);
@@ -196,7 +192,7 @@ describe('Records API', () => {
     it('should return 404 for non-existent record', async () => {
       const res = await authRequest(request(app).put('/api/records/99999').send({
         value: 10000
-      }), headToken);
+      }), getHeadToken());
 
       expect(res.status).toBe(404);
     });
@@ -209,9 +205,9 @@ describe('Records API', () => {
         name: '待删除现金',
         value: 10000,
         date: '2026-05-25'
-      }), headToken);
+      }), getHeadToken());
 
-      const deleteRes = await authRequest(request(app).delete(`/api/records/${createRes.body.data.id}`), headToken);
+      const deleteRes = await authRequest(request(app).delete(`/api/records/${createRes.body.data.id}`), getHeadToken());
 
       expect(deleteRes.status).toBe(200);
       expect(deleteRes.body.success).toBe(true);
@@ -223,7 +219,7 @@ describe('Records API', () => {
         name: '管理员删除现金',
         value: 10000,
         date: '2026-05-25'
-      }), headToken);
+      }), getHeadToken());
 
       const deleteRes = await authRequest(request(app).delete(`/api/records/${createRes.body.data.id}`));
 

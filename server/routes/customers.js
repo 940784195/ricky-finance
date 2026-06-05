@@ -3,25 +3,37 @@ const router = express.Router();
 const { getDb } = require('../db');
 
 router.get('/', (req, res) => {
-  const db = getDb();
-  
-  const sql = `
-    SELECT m.id, m.name, m.short_name as shortName, 
-           f.family_name, f.id as family_id,
-           m.created_at,
-           (SELECT COUNT(*) FROM members WHERE family_id = f.id) as memberCount,
-           (SELECT COUNT(*) FROM records WHERE family_id = f.id AND status = 'valid') as recordCount,
-           (SELECT IFNULL(SUM(r.value), 0) FROM (
-             SELECT value FROM records WHERE family_id = f.id AND status = 'valid'
-             GROUP BY name ORDER BY date DESC LIMIT 1
-           ) r) as totalValue
-    FROM members m
-    LEFT JOIN families f ON m.id = f.head_id
-    WHERE m.role = 'head'
-  `;
-  
   try {
-    const customers = db.prepare(sql).all();
+    const db = getDb();
+    const customers = db.prepare(`
+      SELECT m.id, m.name, m.short_name as shortName, 
+             f.family_name, f.id as family_id,
+             m.created_at,
+             (SELECT COUNT(*) FROM members WHERE family_id = f.id) as memberCount,
+             (SELECT COUNT(*) FROM records WHERE family_id = f.id AND status = 'valid') as recordCount
+      FROM members m
+      LEFT JOIN families f ON m.id = f.head_id
+      WHERE m.role = 'head'
+    `).all();
+
+    for (const customer of customers) {
+      const validRecords = db.prepare(`
+        SELECT id, name, value, date
+        FROM records
+        WHERE family_id = ? AND status = 'valid'
+        ORDER BY name, date DESC, id DESC
+      `).all(customer.family_id);
+
+      const latestMap = {};
+      validRecords.forEach(r => {
+        if (!latestMap[r.name]) {
+          latestMap[r.name] = r;
+        }
+      });
+      const dedupedRecords = Object.values(latestMap);
+      customer.totalValue = dedupedRecords.reduce((sum, r) => sum + r.value, 0);
+    }
+
     res.json({ success: true, data: customers });
   } catch (err) {
     console.error('Error fetching customers:', err);
@@ -33,26 +45,36 @@ router.get('/:id', (req, res) => {
   const db = getDb();
   const customerId = parseInt(req.params.id);
   
-  const customerSql = `
-    SELECT m.id, m.name, m.short_name as shortName, 
-           f.family_name, f.id as family_id,
-           m.created_at,
-           (SELECT COUNT(*) FROM records WHERE family_id = f.id AND status = 'valid') as recordCount,
-           (SELECT IFNULL(SUM(r.value), 0) FROM (
-             SELECT value FROM records WHERE family_id = f.id AND status = 'valid'
-             GROUP BY name ORDER BY date DESC LIMIT 1
-           ) r) as totalValue
-    FROM members m
-    LEFT JOIN families f ON m.id = f.head_id
-    WHERE m.id = ? AND m.role = 'head'
-  `;
-  
   try {
-    const customer = db.prepare(customerSql).get(customerId);
+    const customer = db.prepare(`
+      SELECT m.id, m.name, m.short_name as shortName, 
+             f.family_name, f.id as family_id,
+             m.created_at,
+             (SELECT COUNT(*) FROM records WHERE family_id = f.id AND status = 'valid') as recordCount
+      FROM members m
+      LEFT JOIN families f ON m.id = f.head_id
+      WHERE m.id = ? AND m.role = 'head'
+    `).get(customerId);
     
     if (!customer) {
       return res.status(404).json({ success: false, message: '客户不存在' });
     }
+
+    const validRecords = db.prepare(`
+      SELECT id, name, value, date
+      FROM records
+      WHERE family_id = ? AND status = 'valid'
+      ORDER BY name, date DESC, id DESC
+    `).all(customer.family_id);
+
+    const latestMap = {};
+    validRecords.forEach(r => {
+      if (!latestMap[r.name]) {
+        latestMap[r.name] = r;
+      }
+    });
+    const dedupedRecords = Object.values(latestMap);
+    customer.totalValue = dedupedRecords.reduce((sum, r) => sum + r.value, 0);
     
     const recordsSql = `
       SELECT r.*, mem.name as member_name

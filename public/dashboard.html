@@ -701,11 +701,27 @@
         const labels = [];
         const values = [];
 
-        // 1. 按日期升序排序所有记录（从早到晚）
-        const sortedRecords = [...allRecords].sort((a, b) => new Date(a.date) - new Date(b.date));
+        // 1. 先对记录进行预处理，确保每个(member_id, name)组合只保留最新的一条记录
+        const latestRecordsMap = {}; // key: member_id_name
+        allRecords.forEach(r => {
+            const assetKey = `${r.member_id}_${r.name}`;
+            const existing = latestRecordsMap[assetKey];
+            if (!existing) {
+                latestRecordsMap[assetKey] = r;
+            } else {
+                // 如果当前记录日期比现有记录更新，或日期相同但ID更大，替换
+                if (new Date(r.date) > new Date(existing.date) || 
+                    (new Date(r.date).getTime() === new Date(existing.date).getTime() && r.id > existing.id)) {
+                    latestRecordsMap[assetKey] = r;
+                }
+            }
+        });
+        const latestRecords = Object.values(latestRecordsMap);
 
-        // 2. 构建按日期排序的时间线快照
-        //    timeline 数组的每个元素是 { dateStr, assetValues: { 资产名称: 最新值 } }
+        // 2. 按日期升序排序去重后的记录（从早到晚）
+        const sortedRecords = [...latestRecords].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        // 3. 构建按日期排序的时间线快照
         const timeline = [];
         const currentAssets = {}; // 跟踪每个资产的最新值
 
@@ -718,8 +734,9 @@
                 key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
             }
 
-            // 更新该资产到最新值
-            currentAssets[r.name] = r.value;
+            // 更新该资产到最新值（按成员+资产名称分组）
+            const assetKey = `${r.member_id}_${r.name}`;
+            currentAssets[assetKey] = r.value;
 
             // 查找 timeline 中是否已有相同 key 的条目
             const existingEntry = timeline.find(entry => entry.dateStr === key);

@@ -30,27 +30,25 @@ router.get('/', authMiddleware, (req, res) => {
     whereConnector = 'AND';
   }
 
-  // 资产相关统计 - 按资产名称去重，仅取每个名称的最新记录（按日期取最新）
-  const deduplicatedRecords = db.prepare(`
-    SELECT r.id, r.name, r.value, r.type, r.status, r.created_at, r.date
+  // 资产相关统计 - 先按成员分组，再按资产名称去重，仅取每个名称的最新记录（按日期取最新）
+  // 首先获取所有 valid 记录
+  const allValidRecords = db.prepare(`
+    SELECT r.id, r.name, r.value, r.type, r.status, r.created_at, r.date, r.member_id
     FROM records r
     ${recordsWhere}
     ${whereConnector} r.status = 'valid'
-    AND r.id IN (
-      SELECT MAX(r2.id)
-      FROM records r2
-      ${recordsWhere}
-      ${whereConnector} r2.status = 'valid'
-      AND r2.date = (
-        SELECT MAX(r3.date)
-        FROM records r3
-        ${recordsWhere}
-        ${whereConnector} r3.status = 'valid'
-        AND r3.name = r2.name
-      )
-      GROUP BY r2.name
-    )
-  `).all(...recordsParams, ...recordsParams, ...recordsParams);
+    ORDER BY r.member_id, r.name, r.date DESC, r.id DESC
+  `).all(...recordsParams);
+
+  // 在内存中按 (member_id, name) 去重，只保留最新记录
+  const latestRecordMap = {};
+  allValidRecords.forEach(r => {
+    const key = `${r.member_id}_${r.name}`;
+    if (!latestRecordMap[key]) {
+      latestRecordMap[key] = r;
+    }
+  });
+  const deduplicatedRecords = Object.values(latestRecordMap);
 
   const totalValue = deduplicatedRecords.reduce((sum, r) => sum + r.value, 0);
   const totalRecords = db.prepare(`
@@ -110,39 +108,38 @@ router.get('/', authMiddleware, (req, res) => {
     ${pendingWhere}
   `).get(...pendingParams);
 
-  // 资产类型分布 - 先按 type+name 去重取最新记录，再按 type 汇总
-  const typeDistribution = db.prepare(`
-    SELECT 
-      latest.type,
-      at.display_name,
-      at.color,
-      COUNT(DISTINCT latest.name) as record_count,
-      SUM(latest.value) as total_value
-    FROM (
-      SELECT r.type, r.name, r.value
-      FROM records r
-      ${recordsWhere}
-      ${whereConnector} r.status = 'valid'
-      AND r.id IN (
-        SELECT MAX(r2.id)
-        FROM records r2
-        ${recordsWhere}
-        ${whereConnector} r2.status = 'valid'
-        AND r2.date = (
-          SELECT MAX(r3.date)
-          FROM records r3
-          ${recordsWhere}
-          ${whereConnector} r3.status = 'valid'
-          AND r3.type = r2.type
-          AND r3.name = r2.name
-        )
-        GROUP BY r2.type, r2.name
-      )
-    ) latest
-    LEFT JOIN asset_types at ON latest.type = at.type_value
-    GROUP BY latest.type
-    ORDER BY total_value DESC
-  `).all(...recordsParams, ...recordsParams, ...recordsParams);
+  // 资产类型分布 - 先按 member+name 去重取最新记录（按日期），再按 type 汇总
+  const typeMap = {}; // key: type, value: { names: Set, totalValue: 0 }
+  deduplicatedRecords.forEach(r => {
+    if (!typeMap[r.type]) {
+      typeMap[r.type] = {
+        type: r.type,
+        names: new Set(),
+        totalValue: 0
+      };
+    }
+    typeMap[r.type].names.add(r.name);
+    typeMap[r.type].totalValue += r.value;
+  });
+
+  // 获取资产类型显示名称
+  const allTypes = db.prepare('SELECT type_value, display_name, color FROM asset_types').all();
+  const typeInfo = {};
+  allTypes.forEach(t => {
+    typeInfo[t.type_value] = t;
+  });
+
+  // 构建 typeDistribution
+  const typeDistribution = Object.values(typeMap).map(t => {
+    const info = typeInfo[t.type] || { display_name: t.type, color: '#6b7280' };
+    return {
+      type: t.type,
+      display_name: info.display_name,
+      color: info.color,
+      record_count: t.names.size,
+      total_value: t.totalValue
+    };
+  }).sort((a, b) => b.total_value - a.total_value);
 
   res.json({
     success: true,

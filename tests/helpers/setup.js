@@ -20,51 +20,62 @@ let secondFamilyId, secondHeadId, secondMemberId;
 let customTypeId;
 const TEST_DB_NAME = 'test';
 
-// 初始化测试数据库
+// 清空所有表的内容
+function clearAllTables(db) {
+  db.prepare('PRAGMA foreign_keys = OFF').run();
+  db.prepare('DELETE FROM records').run();
+  db.prepare('DELETE FROM users').run();
+  db.prepare('DELETE FROM members').run();
+  db.prepare('DELETE FROM families').run();
+  db.prepare('DELETE FROM asset_types').run();
+  db.prepare('PRAGMA foreign_keys = ON').run();
+  console.log('[Test Setup] 已清空所有表');
+}
+
+// 初始化测试数据库（清空并重新填充数据）
 function initTestDb() {
-  // 设置活动数据库为测试数据库
+  // 先关闭所有连接并清空缓存
+  closeAllDbs();
+  
+  // 确保先设置活动数据库
   setActiveDb(TEST_DB_NAME);
 
-  // 关闭所有现有连接
-  closeAllDbs();
-
-  // 删除旧的测试数据库文件
+  // 确保目录存在
   const testDbPath = getDbPath(TEST_DB_NAME);
   const testDbDir = path.dirname(testDbPath);
-
-  // 确保目录存在
   if (!fs.existsSync(testDbDir)) {
     fs.mkdirSync(testDbDir, { recursive: true });
   }
 
-  // 删除旧的测试数据库
-  if (fs.existsSync(testDbPath)) {
-    try {
-      fs.unlinkSync(testDbPath);
-    } catch (err) {
-      console.log('[Test Setup] 测试数据库文件正在被使用，跳过删除');
-    }
-  }
-
-  // 连接到测试数据库（会自动创建新的空数据库）
+  // 连接到测试数据库
   const db = getDb(TEST_DB_NAME);
 
-  // 初始化测试数据
-  seedTestDbData(db);
+  // 再次确保活动数据库是测试数据库
+  setActiveDb(TEST_DB_NAME);
 
-  return db;
+  // 清空所有表
+  clearAllTables(db);
+
+  // 初始化测试数据
+  const testData = seedTestDbData(db);
+
+  // 更新全局token
+  initTokens();
+
+  return { db, testData };
+}
+
+// 每次测试前重置数据库到种子状态
+function resetToSeedData() {
+  console.log('[Test Setup] 正在重置数据库到种子状态...');
+  return initTestDb();
 }
 
 // 初始化测试数据库的基础数据
 function seedTestDbData(db) {
-  // 检查是否已经有数据
-  const userCount = db.prepare('SELECT COUNT(*) as cnt FROM users').get();
-  if (userCount.cnt > 0) {
-    console.log('[Test Setup] 测试数据库已有数据，跳过初始化');
-    return;
-  }
-
   console.log('[Test Setup] 正在初始化测试数据库数据...');
+
+  const testData = {};
 
   // ========== 家庭1：主测试家庭 ==========
   const insertFamily = db.prepare('INSERT INTO families (family_name) VALUES (?)');
@@ -82,6 +93,8 @@ function seedTestDbData(db) {
 
   db.prepare('UPDATE families SET head_id = ? WHERE id = ?').run(headId, familyId);
 
+  testData.family1 = { id: familyId, headId, member1Id, member2Id };
+
   // ========== 家庭2：多家庭隔离测试 ==========
   const family2Result = insertFamily.run('测试家庭B');
   const family2Id = family2Result.lastInsertRowid;
@@ -97,6 +110,8 @@ function seedTestDbData(db) {
   secondFamilyId = family2Id;
   secondHeadId = head2Id;
   secondMemberId = member2_1Id;
+
+  testData.family2 = { id: family2Id, headId: head2Id, memberId: member2_1Id };
 
   // ========== 资产类型 ==========
   const insertAssetType = db.prepare(
@@ -176,90 +191,45 @@ function seedTestDbData(db) {
   insertRecord.run(member2_1Id, family2Id, 'fund', '家庭B基金', 300000, '2026-05-19', '家庭B数据', 'valid');
 
   console.log('[Test Setup] 测试数据库初始化完成');
+
+  return testData;
 }
 
 function initTokens() {
   const db = getDb(TEST_DB_NAME);
-  const members = db.prepare('SELECT * FROM members').all();
 
   // 获取主测试家庭（第一个创建的家庭，family_name = '测试家庭'）
   const families = db.prepare('SELECT * FROM families ORDER BY id ASC').all();
   const primaryFamily = families.find(f => f.family_name === '测试家庭') || families[0];
   const primaryFamilyId = primaryFamily?.id;
 
-  const headMember = members.find(m => m.role === 'head' && m.family_id === primaryFamilyId);
-  const memberMember = members.find(m => m.role === 'member' && m.family_id === primaryFamilyId);
+  // 获取用户信息
+  const users = db.prepare('SELECT * FROM users').all();
+  const adminUser = users.find(u => u.username === 'admin');
+  const headUser = users.find(u => u.username === 'head');
+  const memberUser = users.find(u => u.username === 'member');
+
+  const members = db.prepare('SELECT * FROM members').all();
+  const headMember = members.find(m => m.id === headUser?.member_id);
+  const memberMember = members.find(m => m.id === memberUser?.member_id);
 
   const headId = headMember?.id || 1;
-  const headFamilyId = headMember?.family_id || 1;
+  const headFamilyId = headMember?.family_id || primaryFamilyId || 1;
   const memberId = memberMember?.id || headId;
   const memberFamilyId = memberMember?.family_id || headFamilyId;
 
   testMemberId = headId;
   testFamilyId = headFamilyId;
 
-  adminToken = generateTestToken({ id: 1, username: 'admin', role: 'admin' });
-  headToken = generateTestToken({ id: 2, username: 'head', role: 'head', memberId: headId, familyId: headFamilyId });
-  memberToken = generateTestToken({ id: 3, username: 'member', role: 'member', memberId: memberId, familyId: memberFamilyId });
+  // 确保 token 使用正确的用户 ID
+  adminToken = generateTestToken({ id: adminUser?.id || 1, username: 'admin', role: 'admin' });
+  headToken = generateTestToken({ id: headUser?.id || 2, username: 'head', role: 'head', memberId: headId, familyId: headFamilyId });
+  memberToken = generateTestToken({ id: memberUser?.id || 3, username: 'member', role: 'member', memberId: memberId, familyId: memberFamilyId });
+
+  console.log(`[Test Setup] initTokens: headId=${headId}, memberId=${memberId}, familyId=${headFamilyId}`);
+  console.log(`[Test Setup] 用户信息: adminId=${adminUser?.id}, headId=${headUser?.id}, memberId=${memberUser?.id}`);
 
   return { headId, headFamilyId, memberId, memberFamilyId };
-}
-
-function seedTestData() {
-  const db = getDb(TEST_DB_NAME);
-
-  // 安全清理：先关闭外键约束，按依赖顺序清理，再开启
-  db.prepare('PRAGMA foreign_keys = OFF').run();
-  db.prepare('DELETE FROM records').run();
-  // 保留基础数据（members, families, users, asset_types），只清理records
-  db.prepare('PRAGMA foreign_keys = ON').run();
-
-  const { headId, headFamilyId, memberId } = initTokens();
-
-  const initialRecords = [
-    { member_id: headId, family_id: headFamilyId, type: 'stock', name: '招商银行股票', value: 1250000, date: '2026-05-24', note: '客户追加投资', status: 'valid' },
-    { member_id: headId, family_id: headFamilyId, type: 'fund', name: '华夏成长基金', value: 890000, date: '2026-05-23', note: '', status: 'valid' },
-    { member_id: memberId, family_id: headFamilyId, type: 'stock', name: '贵州茅台股票', value: 2300000, date: '2026-05-22', note: '', status: 'valid' },
-    { member_id: memberId, family_id: headFamilyId, type: 'cash', name: '活期存款', value: 500000, date: '2026-05-21', note: '', status: 'valid' },
-    { member_id: headId, family_id: headFamilyId, type: 'fund', name: '易方达蓝筹基金', value: 850000, date: '2026-05-20', note: '定投计划执行', status: 'valid' },
-    { member_id: memberId, family_id: headFamilyId, type: 'realestate', name: '房产投资', value: 5000000, date: '2026-05-19', note: '', status: 'valid' },
-    { member_id: memberId, family_id: headFamilyId, type: 'bond', name: '国债', value: 300000, date: '2026-05-18', note: '', status: 'valid' },
-    { member_id: headId, family_id: headFamilyId, type: 'other', name: '收藏品', value: 150000, date: '2026-05-17', note: '', status: 'valid' },
-    // 多状态记录
-    { member_id: memberId, family_id: headFamilyId, type: 'stock', name: '待审核股票', value: 50000, date: '2026-05-16', note: '等待户主审核', status: 'pending' },
-    { member_id: headId, family_id: headFamilyId, type: 'fund', name: '归档基金', value: 30000, date: '2026-05-15', note: '已归档', status: 'archived' },
-  ];
-
-  const insertStmt = db.prepare(
-    'INSERT INTO records (member_id, family_id, type, name, value, date, note, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-  );
-
-  let insertedCount = 0;
-  initialRecords.forEach(record => {
-    try {
-      insertStmt.run(
-        record.member_id,
-        record.family_id,
-        record.type,
-        record.name,
-        record.value,
-        record.date,
-        record.note,
-        record.status
-      );
-      insertedCount++;
-    } catch (err) {
-      console.log('[Test Setup] 插入记录失败:', record.name, err.message);
-    }
-  });
-  console.log(`[Test Setup] seedTestData 插入了 ${insertedCount} 条记录`);
-}
-
-function cleanupTestData() {
-  const db = getDb(TEST_DB_NAME);
-  db.prepare('PRAGMA foreign_keys = OFF').run();
-  db.prepare('DELETE FROM records').run();
-  db.prepare('PRAGMA foreign_keys = ON').run();
 }
 
 function cleanupTestDb() {
@@ -286,15 +256,31 @@ function getTestData() {
   };
 }
 
-// 在模块加载时初始化测试数据库
-initTestDb();
-initTokens();
+// 已废弃：保留向后兼容，使用 resetToSeedData 代替
+function seedTestData() {
+  console.warn('[Test Setup] seedTestData 已废弃，请使用 resetToSeedData');
+  return resetToSeedData();
+}
+function cleanupTestData() {
+  console.warn('[Test Setup] cleanupTestData 已废弃，不需要手动清理');
+}
 
 module.exports = {
-  seedTestData,
-  cleanupTestData,
+  resetToSeedData,    // 新的：每次测试前重置到种子状态
+  initTestDb,        // 已更新：完整重建测试数据库
+  seedTestData,      // 保留：向后兼容（实际调用 resetToSeedData）
+  cleanupTestData,   // 保留：向后兼容（空函数）
   cleanupTestDb,
   getTestData,
+  
+  // 使用函数获取最新的 token 和 ID（每次调用都是最新状态）
+  getAdminToken: () => adminToken,
+  getHeadToken: () => headToken,
+  getMemberToken: () => memberToken,
+  getTestMemberId: () => testMemberId,
+  getTestFamilyId: () => testFamilyId,
+  
+  // 保留向后兼容，但鼓励使用 getter 函数
   adminToken,
   headToken,
   memberToken,

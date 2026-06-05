@@ -1,17 +1,13 @@
 const request = require('supertest');
 const app = require('../../server/index');
-const { seedTestData, cleanupTestData, adminToken } = require('../helpers/setup');
+const { resetToSeedData, getAdminToken } = require('../helpers/setup');
 
 beforeEach(() => {
-  seedTestData();
-});
-
-afterEach(() => {
-  cleanupTestData();
+  resetToSeedData();
 });
 
 function authRequest(req) {
-  return req.set('Authorization', `Bearer ${adminToken}`);
+  return req.set('Authorization', `Bearer ${getAdminToken()}`);
 }
 
 describe('Stats API', () => {
@@ -23,7 +19,7 @@ describe('Stats API', () => {
 
       const stats = res.body.data;
       expect(stats.totalValue).toBeGreaterThan(0);
-      expect(stats.totalRecords).toBe(10);
+      expect(stats.totalRecords).toBe(22);
       expect(stats.memberCount).toBeGreaterThan(0);
       expect(stats.activeMembers).toBeGreaterThanOrEqual(0);
       expect(stats.monthlyNew).toBeGreaterThanOrEqual(0);
