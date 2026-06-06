@@ -1,0 +1,473 @@
+﻿
+> ricky_finance@1.0.0 test
+> jest tests/api --verbose --no-coverage
+
+  console.log
+    [Test Setup] 姝ｅ湪鍒濆鍖栨祴璇曟暟鎹簱鏁版嵁...
+
+      at log (tests/helpers/setup.js:67:11)
+
+  console.log
+    [Test Setup] 娴嬭瘯鏁版嵁搴撳垵濮嬪寲瀹屾垚
+
+      at log (tests/helpers/setup.js:178:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] 娴嬭瘯鏁版嵁搴撴枃浠舵鍦ㄨ浣跨敤锛岃烦杩囧垹闄?
+      at log (tests/helpers/setup.js:45:15)
+
+  console.log
+    [Test Setup] 娴嬭瘯鏁版嵁搴撳凡鏈夋暟鎹紝璺宠繃鍒濆鍖?
+      at log (tests/helpers/setup.js:63:13)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] 娴嬭瘯鏁版嵁搴撴枃浠舵鍦ㄨ浣跨敤锛岃烦杩囧垹闄?
+      at log (tests/helpers/setup.js:45:15)
+
+  console.log
+    [Test Setup] 娴嬭瘯鏁版嵁搴撳凡鏈夋暟鎹紝璺宠繃鍒濆鍖?
+      at log (tests/helpers/setup.js:63:13)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?10 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+  console.log
+    [Test Setup] 娴嬭瘯鏁版嵁搴撴枃浠舵鍦ㄨ浣跨敤锛岃烦杩囧垹闄?
+      at log (tests/helpers/setup.js:45:15)
+
+  console.log
+    [Test Setup] 娴嬭瘯鏁版嵁搴撳凡鏈夋暟鎹紝璺宠繃鍒濆鍖?
+      at log (tests/helpers/setup.js:63:13)
+
+  console.log
+    [Test Setup] 鎻掑叆璁板綍澶辫触: 鎷涘晢閾惰鑲＄エ FOREIGN KEY constraint failed
+
+      at log (tests/helpers/setup.js:252:15)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    [Test Setup] 鎻掑叆璁板綍澶辫触: 鍗庡鎴愰暱鍩洪噾 FOREIGN KEY constraint failed
+
+      at log (tests/helpers/setup.js:252:15)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    [Test Setup] 鎻掑叆璁板綍澶辫触: 璐靛窞鑼呭彴鑲＄エ FOREIGN KEY constraint failed
+
+      at log (tests/helpers/setup.js:252:15)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    [Test Setup] 鎻掑叆璁板綍澶辫触: 娲绘湡瀛樻 FOREIGN KEY constraint failed
+
+      at log (tests/helpers/setup.js:252:15)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    [Test Setup] 鎻掑叆璁板綍澶辫触: 鏄撴柟杈捐摑绛瑰熀閲?FOREIGN KEY constraint failed
+
+      at log (tests/helpers/setup.js:252:15)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    [Test Setup] 鎻掑叆璁板綍澶辫触: 鎴夸骇鎶曡祫 FOREIGN KEY constraint failed
+
+      at log (tests/helpers/setup.js:252:15)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    [Test Setup] 鎻掑叆璁板綍澶辫触: 鍥藉€?FOREIGN KEY constraint failed
+
+      at log (tests/helpers/setup.js:252:15)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    [Test Setup] 鎻掑叆璁板綍澶辫触: 鏀惰棌鍝?FOREIGN KEY constraint failed
+
+      at log (tests/helpers/setup.js:252:15)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    [Test Setup] 鎻掑叆璁板綍澶辫触: 寰呭鏍歌偂绁?FOREIGN KEY constraint failed
+
+      at log (tests/helpers/setup.js:252:15)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    [Test Setup] 鎻掑叆璁板綍澶辫触: 褰掓。鍩洪噾 FOREIGN KEY constraint failed
+
+      at log (tests/helpers/setup.js:252:15)
+          at Array.forEach (<anonymous>)
+
+  console.log
+    [Test Setup] seedTestData 鎻掑叆浜?0 鏉¤褰?
+      at log (tests/helpers/setup.js:255:11)
+
+npm.cmd : FAIL tests/api/stats.test.js
+所在位置 行:1 字符: 136
++ ... lyContinue; npm.cmd test -- tests/api --verbose --no-coverage 2>&1 |  ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (FAIL tests/api/stats.test.js:Stri 
+   ng) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  鈼?Stats API 鈥?GET /api/stats 鈥?should return computed statistics
+
+    expect(received).toBeGreaterThan(expected)
+
+    Expected: > 0
+    Received:   0
+
+    [0m [90m 23 |[39m
+     [90m 24 |[39m       [36mconst[39m stats [33m=[39m res[33m.[39mbody
+[33m.[39mdata[33m;[39m
+    [31m[1m>[22m[39m[90m 25 |[39m       expect(stats[33m.[39mtotalValue
+)[33m.[39mtoBeGreaterThan([35m0[39m)[33m;[39m
+     [90m    |[39m                                [31m[1m^[22m[39m
+     [90m 26 |[39m       expect(stats[33m.[39mtotalRecords)[33m.[39mtoBe(
+[35m10[39m)[33m;[39m
+     [90m 27 |[39m       expect(stats[33m.[39mmemberCount)[33m.[39mtoBeGr
+eaterThan([35m0[39m)[33m;[39m
+     [90m 28 |[39m       expect(stats[33m.[39mactiveMembers)[33m.[39mtoBe
+GreaterThanOrEqual([35m0[39m)[33m;[39m[0m
+
+      at Object.toBeGreaterThan (tests/api/stats.test.js:25:32)
+
+Test Suites: 1 failed, 3 passed, 4 total
+Tests:       1 failed, 84 passed, 85 total
+Snapshots:   0 total
+Time:        2.296 s, estimated 3 s
+Ran all test suites matching tests/api.
