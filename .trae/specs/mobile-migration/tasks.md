@@ -215,7 +215,7 @@
 
 ## Phase 2: Flutter 移动端基础搭建
 
-### [ ] Task P2-1: 创建 Flutter 项目
+### [x] Task P2-1: 创建 Flutter 项目
 - **Priority**: P1
 - **Depends On**: [P0-2]
 - **Description**: 
@@ -247,7 +247,7 @@
   - `programmatic` TR-P2-1.1: `flutter pub get` 无错误
   - `programmatic` TR-P2-1.2: `flutter run` 在模拟器正常启动
 
-### [ ] Task P2-2: 项目目录结构设计
+### [x] Task P2-2: 项目目录结构设计
 - **Priority**: P1
 - **Depends On**: [P2-1]
 - **Description**: 
@@ -304,7 +304,7 @@
 - **Test Requirements**:
   - `human-judgment` TR-P2-2.1: 目录结构清晰，职责分离合理
 
-### [ ] Task P2-3: 数据模型定义
+### [x] Task P2-3: 数据模型定义
 - **Priority**: P1
 - **Depends On**: [P2-2]
 - **Description**: 
@@ -319,7 +319,7 @@
 - **Test Requirements**:
   - `programmatic` TR-P2-3.1: 模型 `fromJson`/`toJson` 单元测试通过
 
-### [ ] Task P2-4: Drift 数据库配置
+### [x] Task P2-4: Drift 数据库配置
 - **Priority**: P1
 - **Depends On**: [P2-3]
 - **Description**: 
@@ -333,7 +333,7 @@
   - `programmatic` TR-P2-4.1: Drift 数据库初始化成功，表结构正确
   - `programmatic` TR-P2-4.2: 基本 CRUD 操作测试通过
 
-### [ ] Task P2-5: API 服务层搭建
+### [x] Task P2-5: API 服务层搭建
 - **Priority**: P1
 - **Depends On**: [P2-3]
 - **Description**: 
@@ -348,7 +348,7 @@
 - **Test Requirements**:
   - `programmatic` TR-P2-5.1: API 服务单元测试（Mock HTTP 客户端）
 
-### [ ] Task P2-6: 认证 Provider 实现
+### [x] Task P2-6: 认证 Provider 实现
 - **Priority**: P1
 - **Depends On**: [P2-5]
 - **Description**: 
@@ -363,7 +363,7 @@
 - **Test Requirements**:
   - `programmatic` TR-P2-6.1: AuthProvider 单元测试（登录/登出/自动登录）
 
-### [ ] Task P2-7: 主题与基础组件库
+### [x] Task P2-7: 主题与基础组件库
 - **Priority**: P1
 - **Depends On**: [P2-1]
 - **Description**: 
@@ -387,7 +387,7 @@
 
 ## Phase 3: 核心页面开发
 
-### [ ] Task P3-1: 登录页面
+### [x] Task P3-1: 登录页面
 - **Priority**: P1
 - **Depends On**: [P2-6, P2-7]
 - **Description**: 
@@ -402,7 +402,7 @@
   - `programmatic` TR-P3-1.1: Widget 测试（输入验证、登录流程）
   - `human-judgment` TR-P3-1.2: UI 美观、交互流畅
 
-### [ ] Task P3-2: 底部导航框架
+### [x] Task P3-2: 底部导航框架
 - **Priority**: P1
 - **Depends On**: [P2-7]
 - **Description**: 
@@ -413,7 +413,7 @@
 - **Test Requirements**:
   - `human-judgment` TR-P3-2.1: 三个 Tab 切换流畅，页面状态保持
 
-### [ ] Task P3-3: 仪表盘页面
+### [x] Task P3-3: 仪表盘页面
 - **Priority**: P1
 - **Depends On**: [P3-2, P2-5]
 - **Description**: 
@@ -428,7 +428,7 @@
 - **Test Requirements**:
   - `human-judgment` TR-P3-3.1: 仪表盘数据正确展示，图表可交互
 
-### [ ] Task P3-4: 资产记录列表页
+### [x] Task P3-4: 资产记录列表页
 - **Priority**: P1
 - **Depends On**: [P3-2, P2-5]
 - **Description**: 
@@ -445,7 +445,7 @@
   - `programmatic` TR-P3-4.1: Widget 测试（列表渲染、筛选、搜索）
   - `human-judgment` TR-P3-4.2: 交互流畅，筛选和搜索功能正确
 
-### [ ] Task P3-5: 资产记录新增/编辑页
+### [x] Task P3-5: 资产记录新增/编辑页
 - **Priority**: P1
 - **Depends On**: [P3-4]
 - **Description**: 
@@ -459,7 +459,7 @@
   - `programmatic` TR-P3-5.1: Widget 测试（表单验证、提交流程）
   - `human-judgment` TR-P3-5.2: 表单交互友好，自动补全功能正常
 
-### [ ] Task P3-6: 家庭成员管理页
+### [x] Task P3-6: 家庭成员管理页
 - **Priority**: P1
 - **Depends On**: [P3-2, P2-5]
 - **Description**: 
@@ -472,7 +472,7 @@
 - **Test Requirements**:
   - `human-judgment` TR-P3-6.1: 成员列表正确展示，权限控制正确
 
-### [ ] Task P3-7: 资产类型管理页
+### [x] Task P3-7: 资产类型管理页
 - **Priority**: P1
 - **Depends On**: [P3-2, P2-5]
 - **Description**: 
@@ -484,7 +484,7 @@
 - **Test Requirements**:
   - `human-judgment` TR-P3-7.1: 类型列表正确展示，自定义类型 CRUD 正常
 
-### [ ] Task P3-8: 个人中心页面
+### [x] Task P3-8: 个人中心页面
 - **Priority**: P1
 - **Depends On**: [P3-2, P2-6]
 - **Description**: 
