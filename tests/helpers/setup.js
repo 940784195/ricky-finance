@@ -1,14 +1,13 @@
 const jwt = require('jsonwebtoken');
 const path = require('path');
-const fs = require('fs');
 
-// 首先设置环境变量，确保后续加载的模块使用测试数据库
 process.env.NODE_ENV = 'test';
 
-// 现在再加载 db 模块
-const { getDb, closeAllDbs, setActiveDb, getDbPath } = require('../../backend/db/db');
+const { pool, query } = require('../../backend/db/pgPool');
+const { runMigrations } = require('../../backend/db/migrate');
+const { seedDefaultData } = require('../../backend/db/seed');
 
-const JWT_SECRET = 'ricky_finance_jwt_secret_2024';
+const JWT_SECRET = process.env.JWT_SECRET || 'ricky_finance_jwt_secret_2024';
 
 function generateTestToken(user) {
   return jwt.sign(user, JWT_SECRET, { expiresIn: '24h' });
@@ -18,233 +17,210 @@ let adminToken, headToken, memberToken;
 let testMemberId, testFamilyId;
 let secondFamilyId, secondHeadId, secondMemberId;
 let customTypeId;
-const TEST_DB_NAME = 'test';
 
-// 清空所有表的内容
-function clearAllTables(db) {
-  db.prepare('PRAGMA foreign_keys = OFF').run();
-  db.prepare('DELETE FROM records').run();
-  db.prepare('DELETE FROM users').run();
-  db.prepare('DELETE FROM members').run();
-  db.prepare('DELETE FROM families').run();
-  db.prepare('DELETE FROM asset_types').run();
-  db.prepare('PRAGMA foreign_keys = ON').run();
-  console.log('[Test Setup] 已清空所有表');
+async function clearAllTables() {
+  await query('DELETE FROM records');
+  await query('DELETE FROM users');
+  await query('DELETE FROM asset_types');
+  await query('DELETE FROM members');
+  await query('DELETE FROM families');
 }
 
-// 初始化测试数据库（清空并重新填充数据）
-function initTestDb() {
-  // 先关闭所有连接并清空缓存
-  closeAllDbs();
-  
-  // 确保先设置活动数据库
-  setActiveDb(TEST_DB_NAME);
-
-  // 确保目录存在
-  const testDbPath = getDbPath(TEST_DB_NAME);
-  const testDbDir = path.dirname(testDbPath);
-  if (!fs.existsSync(testDbDir)) {
-    fs.mkdirSync(testDbDir, { recursive: true });
-  }
-
-  // 连接到测试数据库
-  const db = getDb(TEST_DB_NAME);
-
-  // 再次确保活动数据库是测试数据库
-  setActiveDb(TEST_DB_NAME);
-
-  // 清空所有表
-  clearAllTables(db);
-
-  // 初始化测试数据
-  const testData = seedTestDbData(db);
-
-  // 更新全局token
-  initTokens();
-
-  return { db, testData };
-}
-
-// 每次测试前重置数据库到种子状态
-function resetToSeedData() {
-  console.log('[Test Setup] 正在重置数据库到种子状态...');
-  return initTestDb();
-}
-
-// 初始化测试数据库的基础数据
-function seedTestDbData(db) {
-  console.log('[Test Setup] 正在初始化测试数据库数据...');
-
+async function seedTestDbData() {
   const testData = {};
 
-  // ========== 家庭1：主测试家庭 ==========
-  const insertFamily = db.prepare('INSERT INTO families (family_name) VALUES (?)');
-  const familyResult = insertFamily.run('测试家庭');
-  const familyId = familyResult.lastInsertRowid;
+  const familyResult = await query(
+    "INSERT INTO families (family_name) VALUES ('测试家庭') RETURNING id"
+  );
+  const familyId = familyResult.rows[0].id;
 
-  // 插入成员（家庭1）
-  const insertMember = db.prepare('INSERT INTO members (family_id, name, short_name, role) VALUES (?, ?, ?, ?)');
-  const headResult = insertMember.run(familyId, '测试户主', '测', 'head');
-  const headId = headResult.lastInsertRowid;
-  const member1Result = insertMember.run(familyId, '测试成员1', '成1', 'member');
-  const member1Id = member1Result.lastInsertRowid;
-  const member2Result = insertMember.run(familyId, '测试成员2', '成2', 'member');
-  const member2Id = member2Result.lastInsertRowid;
+  const headResult = await query(
+    "INSERT INTO members (family_id, name, short_name, role) VALUES ($1, '测试户主', '测', 'head') RETURNING id",
+    [familyId]
+  );
+  const headId = headResult.rows[0].id;
 
-  db.prepare('UPDATE families SET head_id = ? WHERE id = ?').run(headId, familyId);
+  const member1Result = await query(
+    "INSERT INTO members (family_id, name, short_name, role) VALUES ($1, '测试成员1', '成1', 'member') RETURNING id",
+    [familyId]
+  );
+  const member1Id = member1Result.rows[0].id;
+
+  const member2Result = await query(
+    "INSERT INTO members (family_id, name, short_name, role) VALUES ($1, '测试成员2', '成2', 'member') RETURNING id",
+    [familyId]
+  );
+  const member2Id = member2Result.rows[0].id;
+
+  await query('UPDATE families SET head_id = $1 WHERE id = $2', [headId, familyId]);
 
   testData.family1 = { id: familyId, headId, member1Id, member2Id };
 
-  // ========== 家庭2：多家庭隔离测试 ==========
-  const family2Result = insertFamily.run('测试家庭B');
-  const family2Id = family2Result.lastInsertRowid;
+  const family2Result = await query(
+    "INSERT INTO families (family_name) VALUES ('测试家庭B') RETURNING id"
+  );
+  const family2Id = family2Result.rows[0].id;
 
-  const head2Result = insertMember.run(family2Id, '户主B', '主B', 'head');
-  const head2Id = head2Result.lastInsertRowid;
-  const member2_1Result = insertMember.run(family2Id, '成员B1', 'B1', 'member');
-  const member2_1Id = member2_1Result.lastInsertRowid;
+  const head2Result = await query(
+    "INSERT INTO members (family_id, name, short_name, role) VALUES ($1, '户主B', '主B', 'head') RETURNING id",
+    [family2Id]
+  );
+  const head2Id = head2Result.rows[0].id;
 
-  db.prepare('UPDATE families SET head_id = ? WHERE id = ?').run(head2Id, family2Id);
+  const member2_1Result = await query(
+    "INSERT INTO members (family_id, name, short_name, role) VALUES ($1, '成员B1', 'B1', 'member') RETURNING id",
+    [family2Id]
+  );
+  const member2_1Id = member2_1Result.rows[0].id;
 
-  // 保存全局变量
+  await query('UPDATE families SET head_id = $1 WHERE id = $2', [head2Id, family2Id]);
+
   secondFamilyId = family2Id;
   secondHeadId = head2Id;
   secondMemberId = member2_1Id;
 
   testData.family2 = { id: family2Id, headId: head2Id, memberId: member2_1Id };
 
-  // ========== 资产类型 ==========
-  const insertAssetType = db.prepare(
-    'INSERT INTO asset_types (type_value, display_name, color, is_custom) VALUES (?, ?, ?, 0)'
+  const assetTypes = [
+    ['stock', '股票', '#f59e0b'],
+    ['fund', '基金', '#3b82f6'],
+    ['bond', '债券', '#10b981'],
+    ['realestate', '房地产', '#ec4899'],
+    ['cash', '现金', '#6366f1'],
+    ['other', '其他', '#6b7280'],
+  ];
+  for (const [tv, dn, c] of assetTypes) {
+    await query(
+      'INSERT INTO asset_types (type_value, display_name, color, is_custom) VALUES ($1, $2, $3, 0)',
+      [tv, dn, c]
+    );
+  }
+
+  const customTypeResult = await query(
+    "INSERT INTO asset_types (type_value, display_name, color, is_custom, family_id) VALUES ('crypto', '加密货币', '#8b5cf6', 1, $1) RETURNING id",
+    [familyId]
   );
-  insertAssetType.run('stock', '股票', '#f59e0b');
-  insertAssetType.run('fund', '基金', '#3b82f6');
-  insertAssetType.run('bond', '债券', '#10b981');
-  insertAssetType.run('realestate', '房地产', '#ec4899');
-  insertAssetType.run('cash', '现金', '#6366f1');
-  insertAssetType.run('other', '其他', '#6b7280');
+  customTypeId = customTypeResult.rows[0].id;
 
-  // 自定义资产类型（用于 TD-TYPE-01~06）
-  const insertCustomType = db.prepare(
-    'INSERT INTO asset_types (type_value, display_name, color, is_custom, family_id) VALUES (?, ?, ?, 1, ?)'
+  await query(
+    "INSERT INTO asset_types (type_value, display_name, color, is_custom, family_id) VALUES ('gold', '黄金', '#fbbf24', 1, $1)",
+    [familyId]
   );
-  const customTypeResult = insertCustomType.run('crypto', '加密货币', '#8b5cf6', familyId);
-  customTypeId = customTypeResult.lastInsertRowid;
 
-  // 另一个自定义类型（未使用，用于删除测试）
-  const unusedTypeResult = insertCustomType.run('gold', '黄金', '#fbbf24', familyId);
-
-  // ========== 测试用户 ==========
   const bcrypt = require('bcryptjs');
   const adminHash = bcrypt.hashSync('admin123', 10);
   const headHash = bcrypt.hashSync('head123', 10);
   const memberHash = bcrypt.hashSync('member123', 10);
   const head2Hash = bcrypt.hashSync('head2pwd', 10);
 
-  const insertUser = db.prepare(
-    'INSERT INTO users (username, password, role, member_id) VALUES (?, ?, ?, ?)'
+  await query(
+    "INSERT INTO users (username, password, role, member_id) VALUES ('admin', $1, 'admin', NULL)",
+    [adminHash]
   );
-  insertUser.run('admin', adminHash, 'admin', null);
-  insertUser.run('head', headHash, 'head', headId);
-  insertUser.run('member', memberHash, 'member', member1Id);
-  insertUser.run('head2', head2Hash, 'head', head2Id);
-
-  // ========== 资产记录（覆盖 TD-REC-01~31） ==========
-  const insertRecord = db.prepare(
-    'INSERT INTO records (member_id, family_id, type, name, value, date, note, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  await query(
+    "INSERT INTO users (username, password, role, member_id) VALUES ('head', $1, 'head', $2)",
+    [headHash, headId]
+  );
+  await query(
+    "INSERT INTO users (username, password, role, member_id) VALUES ('member', $1, 'member', $2)",
+    [memberHash, member1Id]
+  );
+  await query(
+    "INSERT INTO users (username, password, role, member_id) VALUES ('head2', $1, 'head', $2)",
+    [head2Hash, head2Id]
   );
 
-  // 正常场景记录（TD-REC-01）
-  insertRecord.run(headId, familyId, 'stock', '招商银行股票', 1250000, '2026-05-24', '客户追加投资', 'valid');
-  insertRecord.run(headId, familyId, 'fund', '华夏成长基金', 890000, '2026-05-23', '', 'valid');
-  insertRecord.run(member1Id, familyId, 'stock', '贵州茅台股票', 2300000, '2026-05-22', '', 'valid');
-  insertRecord.run(member1Id, familyId, 'cash', '活期存款', 500000, '2026-05-21', '', 'valid');
-  insertRecord.run(headId, familyId, 'fund', '易方达蓝筹基金', 850000, '2026-05-20', '定投计划执行', 'valid');
-  insertRecord.run(member1Id, familyId, 'realestate', '房产投资', 5000000, '2026-05-19', '', 'valid');
-  insertRecord.run(member1Id, familyId, 'bond', '国债', 300000, '2026-05-18', '', 'valid');
-  insertRecord.run(headId, familyId, 'other', '收藏品', 150000, '2026-05-17', '', 'valid');
+  const records = [
+    [headId, familyId, 'stock', '招商银行股票', 1250000, '2026-05-24', '客户追加投资', 'valid'],
+    [headId, familyId, 'fund', '华夏成长基金', 890000, '2026-05-23', '', 'valid'],
+    [member1Id, familyId, 'stock', '贵州茅台股票', 2300000, '2026-05-22', '', 'valid'],
+    [member1Id, familyId, 'cash', '活期存款', 500000, '2026-05-21', '', 'valid'],
+    [headId, familyId, 'fund', '易方达蓝筹基金', 850000, '2026-05-20', '定投计划执行', 'valid'],
+    [member1Id, familyId, 'realestate', '房产投资', 5000000, '2026-05-19', '', 'valid'],
+    [member1Id, familyId, 'bond', '国债', 300000, '2026-05-18', '', 'valid'],
+    [headId, familyId, 'other', '收藏品', 150000, '2026-05-17', '', 'valid'],
+    [member1Id, familyId, 'stock', '待审核股票', 50000, '2026-05-16', '等待户主审核', 'pending'],
+    [headId, familyId, 'fund', '归档基金', 30000, '2026-05-15', '已归档', 'archived'],
+    [member2Id, familyId, 'cash', '异常现金', 10000, '2026-05-14', '异常场景测试', 'pending'],
+    [headId, familyId, 'stock', '招商银行', 1000000, '2026-01-15', '年初记录', 'valid'],
+    [headId, familyId, 'stock', '招商银行', 1100000, '2026-03-20', '季度更新', 'valid'],
+    [headId, familyId, 'stock', '招商银行', 1250000, '2026-05-24', '最新记录', 'valid'],
+    [member1Id, familyId, 'fund', '华夏成长', 800000, '2026-01-10', '', 'valid'],
+    [member1Id, familyId, 'fund', '华夏成长', 890000, '2026-05-23', '最新', 'valid'],
+    [headId, familyId, 'cash', '定期存款', 2000000, '2026-04-01', '户主的定期', 'valid'],
+    [member1Id, familyId, 'cash', '定期存款', 1500000, '2026-04-15', '成员的定期', 'valid'],
+    [headId, familyId, 'cash', '极小值现金', 0.01, '2026-05-10', '最小货币单位测试', 'valid'],
+    [member1Id, familyId, 'realestate', '极高价值房产', 999999999, '2026-05-09', '大数处理测试', 'valid'],
+    [head2Id, family2Id, 'stock', '家庭B股票', 500000, '2026-05-20', '家庭B数据', 'valid'],
+    [member2_1Id, family2Id, 'fund', '家庭B基金', 300000, '2026-05-19', '家庭B数据', 'valid'],
+  ];
 
-  // 多状态记录（TD-REC-29~31）
-  insertRecord.run(member1Id, familyId, 'stock', '待审核股票', 50000, '2026-05-16', '等待户主审核', 'pending');
-  insertRecord.run(headId, familyId, 'fund', '归档基金', 30000, '2026-05-15', '已归档', 'archived');
-  insertRecord.run(member2Id, familyId, 'cash', '异常现金', 10000, '2026-05-14', '异常场景测试', 'pending');
-
-  // 同一资产多次记录（TD-REC-26~28：测试更新规则）
-  insertRecord.run(headId, familyId, 'stock', '招商银行', 1000000, '2026-01-15', '年初记录', 'valid');
-  insertRecord.run(headId, familyId, 'stock', '招商银行', 1100000, '2026-03-20', '季度更新', 'valid');
-  insertRecord.run(headId, familyId, 'stock', '招商银行', 1250000, '2026-05-24', '最新记录', 'valid');
-
-  // 不同资产分别记录
-  insertRecord.run(member1Id, familyId, 'fund', '华夏成长', 800000, '2026-01-10', '', 'valid');
-  insertRecord.run(member1Id, familyId, 'fund', '华夏成长', 890000, '2026-05-23', '最新', 'valid');
-
-  // 同一资产不同成员（TD-REC-28）
-  insertRecord.run(headId, familyId, 'cash', '定期存款', 2000000, '2026-04-01', '户主的定期', 'valid');
-  insertRecord.run(member1Id, familyId, 'cash', '定期存款', 1500000, '2026-04-15', '成员的定期', 'valid');
-
-  // 边界条件记录（TD-REC-07~08）
-  insertRecord.run(headId, familyId, 'cash', '极小值现金', 0.01, '2026-05-10', '最小货币单位测试', 'valid');
-  insertRecord.run(member1Id, familyId, 'realestate', '极高价值房产', 999999999, '2026-05-09', '大数处理测试', 'valid');
-
-  // 家庭2的记录（多家庭隔离测试 TD-SEC-05~06）
-  insertRecord.run(head2Id, family2Id, 'stock', '家庭B股票', 500000, '2026-05-20', '家庭B数据', 'valid');
-  insertRecord.run(member2_1Id, family2Id, 'fund', '家庭B基金', 300000, '2026-05-19', '家庭B数据', 'valid');
-
-  console.log('[Test Setup] 测试数据库初始化完成');
+  for (const [mid, fid, type, name, value, date, note, status] of records) {
+    await query(
+      'INSERT INTO records (member_id, family_id, type, name, value, date, note, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+      [mid, fid, type, name, value, date, note, status]
+    );
+  }
 
   return testData;
 }
 
-function initTokens() {
-  const db = getDb(TEST_DB_NAME);
-
-  // 获取主测试家庭（第一个创建的家庭，family_name = '测试家庭'）
-  const families = db.prepare('SELECT * FROM families ORDER BY id ASC').all();
-  const primaryFamily = families.find(f => f.family_name === '测试家庭') || families[0];
-  const primaryFamilyId = primaryFamily?.id;
-
-  // 获取用户信息
-  const users = db.prepare('SELECT * FROM users').all();
+async function initTokens() {
+  const usersResult = await query('SELECT * FROM users');
+  const users = usersResult.rows;
   const adminUser = users.find(u => u.username === 'admin');
   const headUser = users.find(u => u.username === 'head');
   const memberUser = users.find(u => u.username === 'member');
 
-  const members = db.prepare('SELECT * FROM members').all();
+  const membersResult = await query('SELECT * FROM members');
+  const members = membersResult.rows;
   const headMember = members.find(m => m.id === headUser?.member_id);
   const memberMember = members.find(m => m.id === memberUser?.member_id);
 
   const headId = headMember?.id || 1;
-  const headFamilyId = headMember?.family_id || primaryFamilyId || 1;
+  const headFamilyId = headMember?.family_id || 1;
   const memberId = memberMember?.id || headId;
   const memberFamilyId = memberMember?.family_id || headFamilyId;
 
   testMemberId = headId;
   testFamilyId = headFamilyId;
 
-  // 确保 token 使用正确的用户 ID
   adminToken = generateTestToken({ id: adminUser?.id || 1, username: 'admin', role: 'admin' });
   headToken = generateTestToken({ id: headUser?.id || 2, username: 'head', role: 'head', memberId: headId, familyId: headFamilyId });
   memberToken = generateTestToken({ id: memberUser?.id || 3, username: 'member', role: 'member', memberId: memberId, familyId: memberFamilyId });
 
-  console.log(`[Test Setup] initTokens: headId=${headId}, memberId=${memberId}, familyId=${headFamilyId}`);
-  console.log(`[Test Setup] 用户信息: adminId=${adminUser?.id}, headId=${headUser?.id}, memberId=${memberUser?.id}`);
-
   return { headId, headFamilyId, memberId, memberFamilyId };
 }
 
-function cleanupTestDb() {
-  closeAllDbs();
-  const testDbPath = getDbPath(TEST_DB_NAME);
-  if (fs.existsSync(testDbPath)) {
-    try {
-      fs.unlinkSync(testDbPath);
-    } catch (err) {
-      console.log('[Test Setup] 无法删除测试数据库文件，可能正在被使用');
-    }
+async function initTestDb() {
+  await runMigrations();
+  await clearAllTables();
+  const testData = await seedTestDbData();
+  await initTokens();
+  return testData;
+}
+
+async function resetToSeedData() {
+  await clearAllTables();
+  const testData = await seedTestDbData();
+  await initTokens();
+  return testData;
+}
+
+function seedTestData() {
+  return resetToSeedData();
+}
+
+function cleanupTestData() {
+}
+
+async function cleanupTestDb() {
+  try {
+    await pool.end();
+  } catch (err) {
   }
 }
 
-// 获取测试辅助数据
 function getTestData() {
   return {
     secondFamilyId,
@@ -256,31 +232,20 @@ function getTestData() {
   };
 }
 
-// 已废弃：保留向后兼容，使用 resetToSeedData 代替
-function seedTestData() {
-  console.warn('[Test Setup] seedTestData 已废弃，请使用 resetToSeedData');
-  return resetToSeedData();
-}
-function cleanupTestData() {
-  console.warn('[Test Setup] cleanupTestData 已废弃，不需要手动清理');
-}
-
 module.exports = {
-  resetToSeedData,    // 新的：每次测试前重置到种子状态
-  initTestDb,        // 已更新：完整重建测试数据库
-  seedTestData,      // 保留：向后兼容（实际调用 resetToSeedData）
-  cleanupTestData,   // 保留：向后兼容（空函数）
+  resetToSeedData,
+  initTestDb,
+  seedTestData,
+  cleanupTestData,
   cleanupTestDb,
   getTestData,
-  
-  // 使用函数获取最新的 token 和 ID（每次调用都是最新状态）
+
   getAdminToken: () => adminToken,
   getHeadToken: () => headToken,
   getMemberToken: () => memberToken,
   getTestMemberId: () => testMemberId,
   getTestFamilyId: () => testFamilyId,
-  
-  // 保留向后兼容，但鼓励使用 getter 函数
+
   adminToken,
   headToken,
   memberToken,

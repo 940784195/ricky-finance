@@ -1,48 +1,44 @@
 const express = require('express');
-const { getDb } = require('../db/db');
+const { query } = require('../db/pgDb');
 const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
 
-// 获取统计数据
-router.get('/', authMiddleware, (req, res) => {
-  const db = getDb();
-
+router.get('/', authMiddleware, async (req, res) => {
   let recordsWhere = '';
   let recordsParams = [];
   let membersWhere = '';
   let membersParams = [];
   let whereConnector = 'WHERE';
+  let paramIndex = 1;
 
   if (req.user.role === 'admin') {
     whereConnector = 'WHERE';
   } else if (req.user.role === 'head') {
-    recordsWhere = 'WHERE r.family_id = ?';
+    recordsWhere = `WHERE r.family_id = $${paramIndex++}`;
     recordsParams.push(req.user.familyId);
-    membersWhere = 'WHERE family_id = ?';
+    membersWhere = `WHERE family_id = $${paramIndex++}`;
     membersParams.push(req.user.familyId);
     whereConnector = 'AND';
   } else {
-    recordsWhere = 'WHERE r.member_id = ?';
+    recordsWhere = `WHERE r.member_id = $${paramIndex++}`;
     recordsParams.push(req.user.memberId);
-    membersWhere = 'WHERE id = ?';
+    membersWhere = `WHERE id = $${paramIndex++}`;
     membersParams.push(req.user.memberId);
     whereConnector = 'AND';
   }
 
-  // 资产相关统计 - 先按成员分组，再按资产名称去重，仅取每个名称的最新记录（按日期取最新）
-  // 首先获取所有 valid 记录
-  const allValidRecords = db.prepare(`
-    SELECT r.id, r.name, r.value, r.type, r.status, r.created_at, r.date, r.member_id
-    FROM records r
-    ${recordsWhere}
-    ${whereConnector} r.status = 'valid'
-    ORDER BY r.member_id, r.name, r.date DESC, r.id DESC
-  `).all(...recordsParams);
+  const allValidResult = await query(
+    `SELECT r.id, r.name, r.value, r.type, r.status, r.created_at, r.date, r.member_id
+     FROM records r
+     ${recordsWhere}
+     ${whereConnector} r.status = 'valid'
+     ORDER BY r.member_id, r.name, r.date DESC, r.id DESC`,
+    recordsParams
+  );
 
-  // 在内存中按 (member_id, name) 去重，只保留最新记录
   const latestRecordMap = {};
-  allValidRecords.forEach(r => {
+  allValidResult.rows.forEach(r => {
     const key = `${r.member_id}_${r.name}`;
     if (!latestRecordMap[key]) {
       latestRecordMap[key] = r;
@@ -51,65 +47,66 @@ router.get('/', authMiddleware, (req, res) => {
   const deduplicatedRecords = Object.values(latestRecordMap);
 
   const totalValue = deduplicatedRecords.reduce((sum, r) => sum + r.value, 0);
-  const totalRecords = db.prepare(`
-    SELECT COUNT(*) as total_records
-    FROM records r
-    ${recordsWhere}
-  `).get(...recordsParams).total_records;
 
-  // 成员统计
-  const membersStats = db.prepare(`
-    SELECT
+  const totalResult = await query(
+    `SELECT COUNT(*) as total_records
+     FROM records r
+     ${recordsWhere}`,
+    recordsParams
+  );
+  const totalRecords = parseInt(totalResult.rows[0].total_records);
+
+  const membersStatsResult = await query(
+    `SELECT
       COUNT(*) as member_count,
       COUNT(DISTINCT CASE WHEN EXISTS (
         SELECT 1 FROM records r WHERE r.member_id = m.id AND r.status = 'valid'
       ) THEN m.id END) as active_members
-    FROM members m
-    ${membersWhere}
-  `).get(...membersParams);
+     FROM members m
+     ${membersWhere}`,
+    membersParams
+  );
+  const membersStats = membersStatsResult.rows[0];
 
-  // 本月新增记录
   const now = new Date();
   const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-  let monthlyWhere = 'WHERE r.date >= ?';
+  let monthlyWhere = `WHERE r.date >= $${paramIndex++}`;
   let monthlyParams = [monthStart];
 
-  if (req.user.role === 'admin') {
-  } else if (req.user.role === 'head') {
-    monthlyWhere += ' AND r.family_id = ?';
+  if (req.user.role === 'head') {
+    monthlyWhere += ` AND r.family_id = $${paramIndex++}`;
     monthlyParams.push(req.user.familyId);
-  } else {
-    monthlyWhere += ' AND r.member_id = ?';
+  } else if (req.user.role === 'member') {
+    monthlyWhere += ` AND r.member_id = $${paramIndex++}`;
     monthlyParams.push(req.user.memberId);
   }
 
-  const monthlyStats = db.prepare(`
-    SELECT COUNT(*) as monthly_new
-    FROM records r
-    ${monthlyWhere}
-  `).get(...monthlyParams);
+  const monthlyResult = await query(
+    `SELECT COUNT(*) as monthly_new
+     FROM records r
+     ${monthlyWhere}`,
+    monthlyParams
+  );
 
-  // 待处理记录
-  let pendingWhere = 'WHERE r.status = ?';
+  let pendingWhere = `WHERE r.status = $${paramIndex++}`;
   let pendingParams = ['pending'];
 
-  if (req.user.role === 'admin') {
-  } else if (req.user.role === 'head') {
-    pendingWhere += ' AND r.family_id = ?';
+  if (req.user.role === 'head') {
+    pendingWhere += ` AND r.family_id = $${paramIndex++}`;
     pendingParams.push(req.user.familyId);
-  } else {
-    pendingWhere += ' AND r.member_id = ?';
+  } else if (req.user.role === 'member') {
+    pendingWhere += ` AND r.member_id = $${paramIndex++}`;
     pendingParams.push(req.user.memberId);
   }
 
-  const pendingStats = db.prepare(`
-    SELECT COUNT(*) as pending_count
-    FROM records r
-    ${pendingWhere}
-  `).get(...pendingParams);
+  const pendingResult = await query(
+    `SELECT COUNT(*) as pending_count
+     FROM records r
+     ${pendingWhere}`,
+    pendingParams
+  );
 
-  // 资产类型分布 - 先按 member+name 去重取最新记录（按日期），再按 type 汇总
-  const typeMap = {}; // key: type, value: { names: Set, totalValue: 0 }
+  const typeMap = {};
   deduplicatedRecords.forEach(r => {
     if (!typeMap[r.type]) {
       typeMap[r.type] = {
@@ -122,14 +119,12 @@ router.get('/', authMiddleware, (req, res) => {
     typeMap[r.type].totalValue += r.value;
   });
 
-  // 获取资产类型显示名称
-  const allTypes = db.prepare('SELECT type_value, display_name, color FROM asset_types').all();
+  const allTypesResult = await query('SELECT type_value, display_name, color FROM asset_types');
   const typeInfo = {};
-  allTypes.forEach(t => {
+  allTypesResult.rows.forEach(t => {
     typeInfo[t.type_value] = t;
   });
 
-  // 构建 typeDistribution
   const typeDistribution = Object.values(typeMap).map(t => {
     const info = typeInfo[t.type] || { display_name: t.type, color: '#6b7280' };
     return {
@@ -146,10 +141,10 @@ router.get('/', authMiddleware, (req, res) => {
     data: {
       totalValue,
       totalRecords,
-      memberCount: membersStats.member_count,
-      activeMembers: membersStats.active_members,
-      monthlyNew: monthlyStats.monthly_new,
-      pendingCount: pendingStats.pending_count,
+      memberCount: parseInt(membersStats.member_count),
+      activeMembers: parseInt(membersStats.active_members),
+      monthlyNew: parseInt(monthlyResult.rows[0].monthly_new),
+      pendingCount: parseInt(pendingResult.rows[0].pending_count),
       typeDistribution
     }
   });

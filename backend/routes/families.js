@@ -1,36 +1,43 @@
 const express = require('express');
-const { getDb } = require('../db/db');
+const { query } = require('../db/pgDb');
 const { authMiddleware, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
-// 获取所有家庭（管理员）
-router.get('/', authMiddleware, requireRole('admin'), (req, res) => {
-  const db = getDb();
-  const families = db.prepare(`
-    SELECT f.*, m.name as head_name
-    FROM families f
-    LEFT JOIN members m ON f.head_id = m.id
-  `).all();
+router.get('/', authMiddleware, requireRole('admin'), async (req, res) => {
+  const result = await query(
+    `SELECT f.*, m.name as head_name
+     FROM families f
+     LEFT JOIN members m ON f.head_id = m.id
+     ORDER BY f.created_at DESC`
+  );
 
-  res.json({ success: true, data: families });
+  res.json({ success: true, data: result.rows });
 });
 
-// 获取家庭详情（管理员）
-router.get('/:id', authMiddleware, requireRole('admin'), (req, res) => {
-  const db = getDb();
-  const family = db.prepare(`
-    SELECT f.*, m.name as head_name
-    FROM families f
-    LEFT JOIN members m ON f.head_id = m.id
-    WHERE f.id = ?
-  `).get(req.params.id);
+router.get('/:id', authMiddleware, requireRole('admin'), async (req, res) => {
+  const result = await query(
+    `SELECT f.*, m.name as head_name
+     FROM families f
+     LEFT JOIN members m ON f.head_id = m.id
+     WHERE f.id = $1`,
+    [req.params.id]
+  );
 
+  const family = result.rows[0];
   if (!family) {
     return res.status(404).json({ success: false, message: '家庭不存在' });
   }
 
-  res.json({ success: true, data: family });
+  const membersResult = await query(
+    'SELECT * FROM members WHERE family_id = $1 ORDER BY role DESC, id ASC',
+    [req.params.id]
+  );
+
+  res.json({
+    success: true,
+    data: { ...family, members: membersResult.rows }
+  });
 });
 
 module.exports = router;

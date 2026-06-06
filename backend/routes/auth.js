@@ -1,17 +1,17 @@
 const express = require('express');
-const { findUserByUsername, verifyPassword, findUserWithMember } = require('../db/db');
+const { findUserByUsername, verifyPassword, findUserWithMember } = require('../db/pgDb');
 const { generateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
     return res.status(400).json({ success: false, message: '请输入用户名和密码' });
   }
 
-  const user = findUserByUsername(username);
+  const user = await findUserByUsername(username);
   if (!user) {
     return res.status(401).json({ success: false, message: '用户名或密码错误' });
   }
@@ -21,7 +21,7 @@ router.post('/login', (req, res) => {
     return res.status(401).json({ success: false, message: '用户名或密码错误' });
   }
 
-  const userWithMember = findUserWithMember(user.id);
+  const userWithMember = await findUserWithMember(user.id);
   const token = generateToken(userWithMember);
 
   res.json({

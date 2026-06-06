@@ -1,26 +1,26 @@
 const express = require('express');
-const { getDb } = require('../db/db');
+const { query } = require('../db/pgDb');
 const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.get('/asset-names', authMiddleware, (req, res) => {
-  const db = getDb();
+router.get('/asset-names', authMiddleware, async (req, res) => {
   const { keyword } = req.query;
 
   let whereClauses = [];
   let params = [];
+  let paramIndex = 1;
 
   if (req.user.role === 'head') {
-    whereClauses.push('r.family_id = ?');
+    whereClauses.push(`r.family_id = $${paramIndex++}`);
     params.push(req.user.familyId);
   } else if (req.user.role === 'member') {
-    whereClauses.push('r.member_id = ?');
+    whereClauses.push(`r.member_id = $${paramIndex++}`);
     params.push(req.user.memberId);
   }
 
   if (keyword) {
-    whereClauses.push('r.name LIKE ?');
+    whereClauses.push(`r.name LIKE $${paramIndex++}`);
     params.push(`%${keyword}%`);
   }
 
@@ -32,47 +32,48 @@ router.get('/asset-names', authMiddleware, (req, res) => {
     LIMIT 20
   `;
 
-  const names = db.prepare(sql).all(...params).map(row => row.name);
+  const result = await query(sql, params);
+  const names = result.rows.map(row => row.name);
   res.json({ success: true, data: names });
 });
 
-router.get('/', authMiddleware, (req, res) => {
-  const db = getDb();
+router.get('/', authMiddleware, async (req, res) => {
   const { memberId, type, status, startDate, endDate, keyword } = req.query;
 
   let whereClauses = ['1=1'];
   let params = [];
+  let paramIndex = 1;
 
   if (req.user.role === 'head') {
-    whereClauses.push('r.family_id = ?');
+    whereClauses.push(`r.family_id = $${paramIndex++}`);
     params.push(req.user.familyId);
   } else if (req.user.role === 'member') {
-    whereClauses.push('r.member_id = ?');
+    whereClauses.push(`r.member_id = $${paramIndex++}`);
     params.push(req.user.memberId);
   }
 
   if (memberId) {
-    whereClauses.push('r.member_id = ?');
+    whereClauses.push(`r.member_id = $${paramIndex++}`);
     params.push(memberId);
   }
   if (type) {
-    whereClauses.push('r.type = ?');
+    whereClauses.push(`r.type = $${paramIndex++}`);
     params.push(type);
   }
   if (status) {
-    whereClauses.push('r.status = ?');
+    whereClauses.push(`r.status = $${paramIndex++}`);
     params.push(status);
   }
   if (startDate) {
-    whereClauses.push('r.date >= ?');
+    whereClauses.push(`r.date >= $${paramIndex++}`);
     params.push(startDate);
   }
   if (endDate) {
-    whereClauses.push('r.date <= ?');
+    whereClauses.push(`r.date <= $${paramIndex++}`);
     params.push(endDate);
   }
   if (keyword) {
-    whereClauses.push('(r.name LIKE ? OR m.name LIKE ?)');
+    whereClauses.push(`(r.name LIKE $${paramIndex++} OR m.name LIKE $${paramIndex++})`);
     params.push(`%${keyword}%`, `%${keyword}%`);
   }
 
@@ -85,20 +86,21 @@ router.get('/', authMiddleware, (req, res) => {
     ORDER BY r.date DESC, r.created_at DESC
   `;
 
-  const records = db.prepare(sql).all(...params);
-  res.json({ success: true, data: records });
+  const result = await query(sql, params);
+  res.json({ success: true, data: result.rows });
 });
 
-router.get('/:id', authMiddleware, (req, res) => {
-  const db = getDb();
-  const record = db.prepare(`
-    SELECT r.*, m.name as member_name, at.display_name as type_display, at.color as type_color
-    FROM records r
-    JOIN members m ON r.member_id = m.id
-    LEFT JOIN asset_types at ON r.type = at.type_value
-    WHERE r.id = ?
-  `).get(req.params.id);
+router.get('/:id', authMiddleware, async (req, res) => {
+  const result = await query(
+    `SELECT r.*, m.name as member_name, at.display_name as type_display, at.color as type_color
+     FROM records r
+     JOIN members m ON r.member_id = m.id
+     LEFT JOIN asset_types at ON r.type = at.type_value
+     WHERE r.id = $1`,
+    [req.params.id]
+  );
 
+  const record = result.rows[0];
   if (!record) {
     return res.status(404).json({ success: false, message: '记录不存在' });
   }
@@ -113,7 +115,7 @@ router.get('/:id', authMiddleware, (req, res) => {
   res.json({ success: true, data: record });
 });
 
-router.post('/', authMiddleware, (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
   const { type, name, value, date, note, memberId } = req.body;
 
   let targetMemberId = memberId;
@@ -124,7 +126,8 @@ router.post('/', authMiddleware, (req, res) => {
     targetMemberId = req.user.memberId;
   }
   if (req.user.role === 'head' && memberId) {
-    const member = getDb().prepare('SELECT * FROM members WHERE id = ?').get(memberId);
+    const memberResult = await query('SELECT * FROM members WHERE id = $1', [memberId]);
+    const member = memberResult.rows[0];
     if (!member || member.family_id !== req.user.familyId) {
       return res.status(403).json({ success: false, message: '无权为该成员添加记录' });
     }
@@ -138,40 +141,34 @@ router.post('/', authMiddleware, (req, res) => {
     return res.status(400).json({ success: false, message: '缺少必填项' });
   }
 
-  const db = getDb();
   const numericMemberId = typeof targetMemberId === 'string' ? parseInt(targetMemberId, 10) : targetMemberId;
-  const member = db.prepare('SELECT * FROM members WHERE id = ?').get(numericMemberId);
+  const memberResult = await query('SELECT * FROM members WHERE id = $1', [numericMemberId]);
+  const member = memberResult.rows[0];
   if (!member) {
     return res.status(400).json({ success: false, message: '成员不存在' });
   }
 
-  const result = db.prepare(`
-    INSERT INTO records (member_id, family_id, type, name, value, date, status, note)
-    VALUES (?, ?, ?, ?, ?, ?, 'valid', ?)
-  `).run(
-    numericMemberId,
-    member.family_id,
-    type,
-    name,
-    Number(value),
-    date,
-    note || ''
+  const insertResult = await query(
+    `INSERT INTO records (member_id, family_id, type, name, value, date, status, note)
+     VALUES ($1, $2, $3, $4, $5, $6, 'valid', $7) RETURNING id`,
+    [numericMemberId, member.family_id, type, name, Number(value), date, note || '']
   );
 
-  const newRecord = db.prepare(`
-    SELECT r.*, m.name as member_name, at.display_name as type_display, at.color as type_color
-    FROM records r
-    JOIN members m ON r.member_id = m.id
-    LEFT JOIN asset_types at ON r.type = at.type_value
-    WHERE r.id = ?
-  `).get(result.lastInsertRowid);
+  const newResult = await query(
+    `SELECT r.*, m.name as member_name, at.display_name as type_display, at.color as type_color
+     FROM records r
+     JOIN members m ON r.member_id = m.id
+     LEFT JOIN asset_types at ON r.type = at.type_value
+     WHERE r.id = $1`,
+    [insertResult.rows[0].id]
+  );
 
-  res.status(201).json({ success: true, data: newRecord });
+  res.status(201).json({ success: true, data: newResult.rows[0] });
 });
 
-router.put('/:id', authMiddleware, (req, res) => {
-  const db = getDb();
-  const record = db.prepare('SELECT * FROM records WHERE id = ?').get(req.params.id);
+router.put('/:id', authMiddleware, async (req, res) => {
+  const recordResult = await query('SELECT * FROM records WHERE id = $1', [req.params.id]);
+  const record = recordResult.rows[0];
 
   if (!record) {
     return res.status(404).json({ success: false, message: '记录不存在' });
@@ -186,32 +183,35 @@ router.put('/:id', authMiddleware, (req, res) => {
 
   const { type, name, value, date, previousValue, status, note, previous_value } = req.body;
   const actualPreviousValue = previousValue !== undefined ? previousValue : previous_value;
-  db.prepare(`
-    UPDATE records
-    SET type = COALESCE(?, type),
-        name = COALESCE(?, name),
-        value = CASE WHEN ? IS NOT NULL THEN ? ELSE value END,
-        previous_value = CASE WHEN ? IS NOT NULL THEN ? ELSE previous_value END,
-        date = COALESCE(?, date),
-        status = COALESCE(?, status),
-        note = CASE WHEN ? IS NOT NULL THEN ? ELSE note END
-    WHERE id = ?
-  `).run(type, name, value, value, actualPreviousValue, actualPreviousValue, date, status, note, note, req.params.id);
 
-  const updatedRecord = db.prepare(`
-    SELECT r.*, m.name as member_name, at.display_name as type_display, at.color as type_color
-    FROM records r
-    JOIN members m ON r.member_id = m.id
-    LEFT JOIN asset_types at ON r.type = at.type_value
-    WHERE r.id = ?
-  `).get(req.params.id);
+  await query(
+    `UPDATE records
+     SET type = COALESCE($1, type),
+         name = COALESCE($2, name),
+         value = CASE WHEN $3 IS NOT NULL THEN $4 ELSE value END,
+         previous_value = CASE WHEN $5 IS NOT NULL THEN $6 ELSE previous_value END,
+         date = COALESCE($7, date),
+         status = COALESCE($8, status),
+         note = CASE WHEN $9 IS NOT NULL THEN $10 ELSE note END
+     WHERE id = $11`,
+    [type, name, value, value, actualPreviousValue, actualPreviousValue, date, status, note, note, req.params.id]
+  );
 
-  res.json({ success: true, data: updatedRecord });
+  const updatedResult = await query(
+    `SELECT r.*, m.name as member_name, at.display_name as type_display, at.color as type_color
+     FROM records r
+     JOIN members m ON r.member_id = m.id
+     LEFT JOIN asset_types at ON r.type = at.type_value
+     WHERE r.id = $1`,
+    [req.params.id]
+  );
+
+  res.json({ success: true, data: updatedResult.rows[0] });
 });
 
-router.delete('/:id', authMiddleware, (req, res) => {
-  const db = getDb();
-  const record = db.prepare('SELECT * FROM records WHERE id = ?').get(req.params.id);
+router.delete('/:id', authMiddleware, async (req, res) => {
+  const recordResult = await query('SELECT * FROM records WHERE id = $1', [req.params.id]);
+  const record = recordResult.rows[0];
 
   if (!record) {
     return res.status(404).json({ success: false, message: '记录不存在' });
@@ -224,7 +224,7 @@ router.delete('/:id', authMiddleware, (req, res) => {
     return res.status(403).json({ success: false, message: '无权删除此记录' });
   }
 
-  db.prepare('DELETE FROM records WHERE id = ?').run(req.params.id);
+  await query('DELETE FROM records WHERE id = $1', [req.params.id]);
   res.json({ success: true, message: '记录已删除' });
 });
 

@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
-const { findUserWithMember } = require('../db/db');
+const { findUserWithMember } = require('../db/pgDb');
 
-const JWT_SECRET = 'ricky_finance_jwt_secret_2024';
+const JWT_SECRET = process.env.JWT_SECRET || 'ricky_finance_jwt_secret_2024';
 const JWT_EXPIRES_IN = '24h';
 
 function generateToken(user) {
@@ -25,7 +25,7 @@ function generateToken(user) {
   );
 }
 
-function authMiddleware(req, res, next) {
+async function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
   let token = null;
 
@@ -41,7 +41,7 @@ function authMiddleware(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const user = findUserWithMember(decoded.id);
+    const user = await findUserWithMember(decoded.id);
     if (!user) {
       return res.status(401).json({ success: false, message: '用户不存在' });
     }
@@ -52,14 +52,14 @@ function authMiddleware(req, res, next) {
   }
 }
 
-function optionalAuth(req, res, next) {
+async function optionalAuth(req, res, next) {
   const authHeader = req.headers.authorization;
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.split(' ')[1];
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
-      const user = findUserWithMember(decoded.id);
+      const user = await findUserWithMember(decoded.id);
       if (user) {
         req.user = decoded;
       }

@@ -1,148 +1,136 @@
 const express = require('express');
-const { getDb } = require('../db/db');
+const { query } = require('../db/pgDb');
 const { authMiddleware, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
-// 获取当前家庭的所有成员（户主）
-router.get('/', authMiddleware, (req, res) => {
-  const db = getDb();
-  let members;
+router.get('/', authMiddleware, async (req, res) => {
+  let whereClause = '';
+  let params = [];
+  let paramIndex = 1;
 
-  if (req.user.role === 'admin') {
-    // 管理员查看所有成员
-    members = db.prepare(`
-      SELECT m.*, f.family_name
-      FROM members m
-      JOIN families f ON m.family_id = f.id
-    `).all();
-  } else if (req.user.role === 'head') {
-    // 户主查看自己家庭的成员
-    members = db.prepare(`
-      SELECT m.*
-      FROM members m
-      WHERE m.family_id = ?
-    `).all(req.user.familyId);
-  } else {
-    // 成员只查看自己
-    members = db.prepare(`
-      SELECT m.*
-      FROM members m
-      WHERE m.id = ?
-    `).all(req.user.memberId);
+  if (req.user.role === 'head') {
+    whereClause = `WHERE m.family_id = $${paramIndex++}`;
+    params.push(req.user.familyId);
+  } else if (req.user.role === 'member') {
+    whereClause = `WHERE m.id = $${paramIndex++}`;
+    params.push(req.user.memberId);
   }
 
-  // 补充成员资产统计（按 member_id + name 去重，仅取最新记录）
-  for (let member of members) {
-    const validRecords = db.prepare(`
-      SELECT id, name, value, date
-      FROM records
-      WHERE member_id = ? AND status = 'valid'
-      ORDER BY name, date DESC, id DESC
-    `).all(member.id);
+  const membersResult = await query(
+    `SELECT m.*,
+      (SELECT COUNT(*) FROM records r WHERE r.member_id = m.id) as record_count,
+      (SELECT COALESCE(SUM(r2.value), 0)
+       FROM records r2
+       WHERE r2.member_id = m.id
+         AND r2.status = 'valid'
+         AND r2.id = (
+           SELECT r3.id FROM records r3
+           WHERE r3.member_id = r2.member_id AND r3.name = r2.name AND r3.status = 'valid'
+           ORDER BY r3.date DESC, r3.id DESC LIMIT 1
+         )
+      ) as total_assets
+     FROM members m
+     ${whereClause}
+     ORDER BY m.role DESC, m.id ASC`,
+    params
+  );
 
-    const latestMap = {};
-    validRecords.forEach(r => {
-      if (!latestMap[r.name]) {
-        latestMap[r.name] = r;
-      }
-    });
-    const dedupedRecords = Object.values(latestMap);
-    member.record_count = dedupedRecords.length;
-    member.total_value = dedupedRecords.reduce((sum, r) => sum + r.value, 0);
-  }
-
-  res.json({ success: true, data: members });
+  res.json({ success: true, data: membersResult.rows });
 });
 
-// 获取成员详情（含资产记录）
-router.get('/:id', authMiddleware, (req, res) => {
-  const db = getDb();
-  const member = db.prepare('SELECT * FROM members WHERE id = ?').get(req.params.id);
+router.get('/:id', authMiddleware, async (req, res) => {
+  const memberResult = await query(
+    `SELECT m.*,
+      (SELECT COUNT(*) FROM records r WHERE r.member_id = m.id) as record_count
+     FROM members m WHERE m.id = $1`,
+    [req.params.id]
+  );
 
+  const member = memberResult.rows[0];
   if (!member) {
     return res.status(404).json({ success: false, message: '成员不存在' });
   }
 
-  // 权限检查
-  if (req.user.role !== 'admin' && member.family_id !== req.user.familyId) {
-    return res.status(403).json({ success: false, message: '无权访问' });
+  if (req.user.role === 'head' && member.family_id !== req.user.familyId) {
+    return res.status(403).json({ success: false, message: '无权访问此成员' });
+  }
+  if (req.user.role === 'member' && member.id !== req.user.memberId) {
+    return res.status(403).json({ success: false, message: '无权访问此成员' });
   }
 
-  // 获取成员资产记录
-  const records = db.prepare(`
-    SELECT r.*, at.display_name as type_display
-    FROM records r
-    LEFT JOIN asset_types at ON r.type = at.type_value
-    WHERE r.member_id = ?
-    ORDER BY r.date DESC
-  `).all(req.params.id);
+  const recordsResult = await query(
+    `SELECT r.*, at.display_name as type_display, at.color as type_color
+     FROM records r
+     LEFT JOIN asset_types at ON r.type = at.type_value
+     WHERE r.member_id = $1
+     ORDER BY r.date DESC, r.created_at DESC`,
+    [req.params.id]
+  );
 
-  res.json({ success: true, data: { ...member, records } });
+  res.json({
+    success: true,
+    data: { ...member, records: recordsResult.rows }
+  });
 });
 
-// 添加新成员（户主）
-router.post('/', authMiddleware, requireRole('head'), (req, res) => {
-  const { name, shortName } = req.body;
+router.post('/', authMiddleware, requireRole('head'), async (req, res) => {
+  const { name, shortName, role } = req.body;
 
   if (!name) {
-    return res.status(400).json({ success: false, message: '成员姓名为必填项' });
+    return res.status(400).json({ success: false, message: '成员姓名不能为空' });
   }
 
-  const db = getDb();
-  const result = db.prepare(`
-    INSERT INTO members (family_id, name, short_name, role)
-    VALUES (?, ?, ?, 'member')
-  `).run(req.user.familyId, name, shortName || name.charAt(0));
+  const insertResult = await query(
+    `INSERT INTO members (family_id, name, short_name, role)
+     VALUES ($1, $2, $3, $4) RETURNING id`,
+    [req.user.familyId, name, shortName || name.charAt(0), role || 'member']
+  );
 
-  const newMember = db.prepare('SELECT * FROM members WHERE id = ?').get(result.lastInsertRowid);
-  res.status(201).json({ success: true, data: newMember });
+  const newMember = await query('SELECT * FROM members WHERE id = $1', [insertResult.rows[0].id]);
+  res.status(201).json({ success: true, data: newMember.rows[0] });
 });
 
-// 更新成员信息（户主）
-router.put('/:id', authMiddleware, requireRole('head'), (req, res) => {
-  const db = getDb();
-  const member = db.prepare('SELECT * FROM members WHERE id = ?').get(req.params.id);
+router.put('/:id', authMiddleware, requireRole('head'), async (req, res) => {
+  const memberResult = await query('SELECT * FROM members WHERE id = $1', [req.params.id]);
+  const member = memberResult.rows[0];
 
   if (!member) {
     return res.status(404).json({ success: false, message: '成员不存在' });
   }
-
   if (member.family_id !== req.user.familyId) {
-    return res.status(403).json({ success: false, message: '无权修改' });
+    return res.status(403).json({ success: false, message: '无权修改此成员' });
   }
 
-  const { name, shortName } = req.body;
-  db.prepare(`
-    UPDATE members
-    SET name = COALESCE(?, name),
-        short_name = COALESCE(?, short_name)
-    WHERE id = ?
-  `).run(name, shortName, req.params.id);
+  const { name, shortName, role } = req.body;
 
-  const updatedMember = db.prepare('SELECT * FROM members WHERE id = ?').get(req.params.id);
-  res.json({ success: true, data: updatedMember });
+  await query(
+    `UPDATE members
+     SET name = COALESCE($1, name),
+         short_name = COALESCE($2, short_name),
+         role = COALESCE($3, role)
+     WHERE id = $4`,
+    [name, shortName, role, req.params.id]
+  );
+
+  const updated = await query('SELECT * FROM members WHERE id = $1', [req.params.id]);
+  res.json({ success: true, data: updated.rows[0] });
 });
 
-// 删除成员（户主）
-router.delete('/:id', authMiddleware, requireRole('head'), (req, res) => {
-  const db = getDb();
-  const member = db.prepare('SELECT * FROM members WHERE id = ?').get(req.params.id);
+router.delete('/:id', authMiddleware, requireRole('head'), async (req, res) => {
+  const memberResult = await query('SELECT * FROM members WHERE id = $1', [req.params.id]);
+  const member = memberResult.rows[0];
 
   if (!member) {
     return res.status(404).json({ success: false, message: '成员不存在' });
   }
-
   if (member.family_id !== req.user.familyId) {
-    return res.status(403).json({ success: false, message: '无权删除' });
+    return res.status(403).json({ success: false, message: '无权删除此成员' });
   }
 
-  // 删除成员资产记录
-  db.prepare('DELETE FROM records WHERE member_id = ?').run(req.params.id);
-  // 删除成员用户账号
-  db.prepare('UPDATE users SET member_id = NULL WHERE member_id = ?').run(req.params.id);
-  // 删除成员
-  db.prepare('DELETE FROM members WHERE id = ?').run(req.params.id);
+  await query('UPDATE users SET member_id = NULL WHERE member_id = $1', [req.params.id]);
+  await query('DELETE FROM records WHERE member_id = $1', [req.params.id]);
+  await query('DELETE FROM members WHERE id = $1', [req.params.id]);
 
   res.json({ success: true, message: '成员已删除' });
 });

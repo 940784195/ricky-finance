@@ -1,202 +1,190 @@
 const express = require('express');
+const { query } = require('../db/pgDb');
+const { authMiddleware, requireRole } = require('../middleware/auth');
+
 const router = express.Router();
-const { getDb } = require('../db/db');
 
-router.get('/', (req, res) => {
-  try {
-    const db = getDb();
-    const customers = db.prepare(`
-      SELECT m.id, m.name, m.short_name as shortName, 
-             f.family_name, f.id as family_id,
-             m.created_at,
-             (SELECT COUNT(*) FROM members WHERE family_id = f.id) as memberCount,
-             (SELECT COUNT(*) FROM records WHERE family_id = f.id AND status = 'valid') as recordCount
-      FROM members m
-      LEFT JOIN families f ON m.id = f.head_id
-      WHERE m.role = 'head'
-    `).all();
+router.get('/', authMiddleware, requireRole('admin'), async (req, res) => {
+  const result = await query(
+    `SELECT m.id, m.name, m.short_name, m.role, m.created_at,
+            f.id as family_id, f.family_name,
+            (SELECT COUNT(*) FROM members mem WHERE mem.family_id = f.id) as member_count,
+            (SELECT COUNT(*) FROM records r WHERE r.family_id = f.id) as record_count,
+            (SELECT COALESCE(SUM(r2.value), 0)
+             FROM records r2
+             WHERE r2.family_id = f.id
+               AND r2.status = 'valid'
+               AND r2.id = (
+                 SELECT r3.id FROM records r3
+                 WHERE r3.member_id = r2.member_id AND r3.name = r2.name AND r3.status = 'valid'
+                 ORDER BY r3.date DESC, r3.id DESC LIMIT 1
+               )
+            ) as total_value
+     FROM members m
+     JOIN families f ON m.family_id = f.id
+     WHERE m.role = 'head'
+     ORDER BY m.created_at DESC`
+  );
 
-    for (const customer of customers) {
-      const validRecords = db.prepare(`
-        SELECT id, name, value, date
-        FROM records
-        WHERE family_id = ? AND status = 'valid'
-        ORDER BY name, date DESC, id DESC
-      `).all(customer.family_id);
-
-      const latestMap = {};
-      validRecords.forEach(r => {
-        if (!latestMap[r.name]) {
-          latestMap[r.name] = r;
-        }
-      });
-      const dedupedRecords = Object.values(latestMap);
-      customer.totalValue = dedupedRecords.reduce((sum, r) => sum + r.value, 0);
-    }
-
-    res.json({ success: true, data: customers });
-  } catch (err) {
-    console.error('Error fetching customers:', err);
-    res.status(500).json({ success: false, message: '获取客户列表失败' });
-  }
+  res.json({ success: true, data: result.rows });
 });
 
-router.get('/:id', (req, res) => {
-  const db = getDb();
-  const customerId = parseInt(req.params.id);
-  
-  try {
-    const customer = db.prepare(`
-      SELECT m.id, m.name, m.short_name as shortName, 
-             f.family_name, f.id as family_id,
-             m.created_at,
-             (SELECT COUNT(*) FROM records WHERE family_id = f.id AND status = 'valid') as recordCount
-      FROM members m
-      LEFT JOIN families f ON m.id = f.head_id
-      WHERE m.id = ? AND m.role = 'head'
-    `).get(customerId);
-    
-    if (!customer) {
-      return res.status(404).json({ success: false, message: '客户不存在' });
-    }
+router.get('/:id', authMiddleware, requireRole('admin'), async (req, res) => {
+  const memberResult = await query(
+    `SELECT m.*, f.family_name
+     FROM members m
+     JOIN families f ON m.family_id = f.id
+     WHERE m.id = $1 AND m.role = 'head'`,
+    [req.params.id]
+  );
 
-    const validRecords = db.prepare(`
-      SELECT id, name, value, date
-      FROM records
-      WHERE family_id = ? AND status = 'valid'
-      ORDER BY name, date DESC, id DESC
-    `).all(customer.family_id);
-
-    const latestMap = {};
-    validRecords.forEach(r => {
-      if (!latestMap[r.name]) {
-        latestMap[r.name] = r;
-      }
-    });
-    const dedupedRecords = Object.values(latestMap);
-    customer.totalValue = dedupedRecords.reduce((sum, r) => sum + r.value, 0);
-    
-    const recordsSql = `
-      SELECT r.*, mem.name as member_name
-      FROM records r
-      LEFT JOIN members mem ON r.member_id = mem.id
-      WHERE r.family_id = ? AND r.status = 'valid'
-      ORDER BY r.date DESC
-    `;
-    
-    const records = db.prepare(recordsSql).all(customer.family_id);
-    
-    customer.records = records;
-    
-    res.json({ success: true, data: customer });
-  } catch (err) {
-    console.error('Error fetching customer:', err);
-    res.status(500).json({ success: false, message: '获取客户信息失败' });
+  const customer = memberResult.rows[0];
+  if (!customer) {
+    return res.status(404).json({ success: false, message: '客户不存在' });
   }
+
+  const recordsResult = await query(
+    `SELECT r.*, m.name as member_name, at.display_name as type_display, at.color as type_color
+     FROM records r
+     JOIN members m ON r.member_id = m.id
+     LEFT JOIN asset_types at ON r.type = at.type_value
+     WHERE r.family_id = $1
+     ORDER BY r.date DESC, r.created_at DESC`,
+    [customer.family_id]
+  );
+
+  const statsResult = await query(
+    `SELECT
+      (SELECT COALESCE(SUM(r2.value), 0)
+       FROM records r2
+       WHERE r2.family_id = $1
+         AND r2.status = 'valid'
+         AND r2.id = (
+           SELECT r3.id FROM records r3
+           WHERE r3.member_id = r2.member_id AND r3.name = r2.name AND r3.status = 'valid'
+           ORDER BY r3.date DESC, r3.id DESC LIMIT 1
+         )
+      ) as total_value,
+      (SELECT COUNT(*) FROM records r WHERE r.family_id = $1) as record_count`,
+    [customer.family_id]
+  );
+
+  res.json({
+    success: true,
+    data: {
+      ...customer,
+      totalValue: parseFloat(statsResult.rows[0].total_value) || 0,
+      recordCount: parseInt(statsResult.rows[0].record_count) || 0,
+      records: recordsResult.rows
+    }
+  });
 });
 
-router.post('/', (req, res) => {
-  const db = getDb();
+router.post('/', authMiddleware, requireRole('admin'), async (req, res) => {
   const { name, shortName, code } = req.body;
-  
+
   if (!name) {
     return res.status(400).json({ success: false, message: '客户名称不能为空' });
   }
-  
+
+  const client = await require('../db/pgPool').getClient();
   try {
-    const insertFamily = db.prepare(
-      'INSERT INTO families (family_name) VALUES (?)'
+    await client.query('BEGIN');
+
+    const familyResult = await client.query(
+      'INSERT INTO families (family_name) VALUES ($1) RETURNING id',
+      [name]
     );
-    const familyResult = insertFamily.run(name);
-    const familyId = familyResult.lastInsertRowid;
-    
-    const insertMember = db.prepare(
-      'INSERT INTO members (family_id, name, short_name, role) VALUES (?, ?, ?, ?)'
+    const familyId = familyResult.rows[0].id;
+
+    const memberResult = await client.query(
+      `INSERT INTO members (family_id, name, short_name, role)
+       VALUES ($1, $2, $3, 'head') RETURNING id`,
+      [familyId, name, shortName || name.charAt(0)]
     );
-    const memberResult = insertMember.run(familyId, name, shortName || name.charAt(0), 'head');
-    const memberId = memberResult.lastInsertRowid;
-    
-    db.prepare('UPDATE families SET head_id = ? WHERE id = ?').run(memberId, familyId);
-    
-    const customerSql = `
-      SELECT m.id, m.name, m.short_name as shortName, 
-             f.family_name, f.id as family_id, m.created_at
-      FROM members m
-      LEFT JOIN families f ON m.id = f.head_id
-      WHERE m.id = ?
-    `;
-    
-    const customer = db.prepare(customerSql).get(memberId);
-    
-    res.status(201).json({ success: true, data: customer });
+    const headId = memberResult.rows[0].id;
+
+    await client.query('UPDATE families SET head_id = $1 WHERE id = $2', [headId, familyId]);
+
+    await client.query('COMMIT');
+
+    const newCustomer = await query(
+      `SELECT m.*, f.family_name, f.id as family_id
+       FROM members m
+       JOIN families f ON m.family_id = f.id
+       WHERE m.id = $1`,
+      [headId]
+    );
+
+    res.status(201).json({ success: true, data: newCustomer.rows[0] });
   } catch (err) {
-    console.error('Error creating customer:', err);
-    res.status(500).json({ success: false, message: '创建客户失败' });
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
   }
 });
 
-router.put('/:id', (req, res) => {
-  const db = getDb();
-  const customerId = parseInt(req.params.id);
+router.put('/:id', authMiddleware, requireRole('admin'), async (req, res) => {
+  const memberResult = await query(
+    'SELECT * FROM members WHERE id = $1 AND role = $2',
+    [req.params.id, 'head']
+  );
+
+  const customer = memberResult.rows[0];
+  if (!customer) {
+    return res.status(404).json({ success: false, message: '客户不存在' });
+  }
+
   const { name, shortName } = req.body;
-  
-  try {
-    const member = db.prepare("SELECT * FROM members WHERE id = ? AND role = 'head'").get(customerId);
-    
-    if (!member) {
-      return res.status(404).json({ success: false, message: '客户不存在' });
-    }
-    
-    if (name) {
-      db.prepare('UPDATE members SET name = ? WHERE id = ?').run(name, customerId);
-      db.prepare('UPDATE families SET family_name = ? WHERE head_id = ?').run(name, customerId);
-    }
-    
-    if (shortName) {
-      db.prepare('UPDATE members SET short_name = ? WHERE id = ?').run(shortName, customerId);
-    }
-    
-    const customerSql = `
-      SELECT m.id, m.name, m.short_name as shortName, 
-             f.family_name, f.id as family_id, m.created_at
-      FROM members m
-      LEFT JOIN families f ON m.id = f.head_id
-      WHERE m.id = ?
-    `;
-    
-    const customer = db.prepare(customerSql).get(customerId);
-    
-    res.json({ success: true, data: customer });
-  } catch (err) {
-    console.error('Error updating customer:', err);
-    res.status(500).json({ success: false, message: '更新客户失败' });
+
+  if (name) {
+    await query('UPDATE members SET name = $1 WHERE id = $2', [name, req.params.id]);
+    await query('UPDATE families SET family_name = $1 WHERE head_id = $2', [name, req.params.id]);
   }
+  if (shortName) {
+    await query('UPDATE members SET short_name = $1 WHERE id = $2', [shortName, req.params.id]);
+  }
+
+  const updated = await query(
+    `SELECT m.*, f.family_name, f.id as family_id
+     FROM members m
+     JOIN families f ON m.family_id = f.id
+     WHERE m.id = $1`,
+    [req.params.id]
+  );
+
+  res.json({ success: true, data: updated.rows[0] });
 });
 
-router.delete('/:id', (req, res) => {
-  const db = getDb();
-  const customerId = parseInt(req.params.id);
-  
+router.delete('/:id', authMiddleware, requireRole('admin'), async (req, res) => {
+  const memberResult = await query(
+    'SELECT * FROM members WHERE id = $1 AND role = $2',
+    [req.params.id, 'head']
+  );
+
+  const customer = memberResult.rows[0];
+  if (!customer) {
+    return res.status(404).json({ success: false, message: '客户不存在' });
+  }
+
+  const client = await require('../db/pgPool').getClient();
   try {
-    const member = db.prepare("SELECT * FROM members WHERE id = ? AND role = 'head'").get(customerId);
-    
-    if (!member) {
-      return res.status(404).json({ success: false, message: '客户不存在' });
-    }
-    
-    const familyId = member.family_id;
-    
-    db.prepare('DELETE FROM records WHERE family_id = ?').run(familyId);
-    db.prepare('DELETE FROM asset_types WHERE family_id = ?').run(familyId);
-    db.prepare('UPDATE families SET head_id = NULL WHERE id = ?').run(familyId);
-    db.prepare('UPDATE users SET member_id = NULL WHERE member_id IN (SELECT id FROM members WHERE family_id = ?)').run(familyId);
-    db.prepare('DELETE FROM members WHERE family_id = ?').run(familyId);
-    db.prepare('DELETE FROM families WHERE id = ?').run(familyId);
-    
+    await client.query('BEGIN');
+
+    await client.query('UPDATE users SET member_id = NULL WHERE member_id = $1', [req.params.id]);
+    await client.query('DELETE FROM records WHERE family_id = $1', [customer.family_id]);
+    await client.query('DELETE FROM asset_types WHERE family_id = $1', [customer.family_id]);
+    await client.query('DELETE FROM members WHERE family_id = $1', [customer.family_id]);
+    await client.query('DELETE FROM families WHERE id = $1', [customer.family_id]);
+
+    await client.query('COMMIT');
     res.json({ success: true, message: '客户已删除' });
   } catch (err) {
-    console.error('Error deleting customer:', err);
-    res.status(500).json({ success: false, message: '删除客户失败' });
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
   }
 });
 

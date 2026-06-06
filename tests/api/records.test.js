@@ -2,8 +2,8 @@ const request = require('supertest');
 const app = require('../../backend/index');
 const { resetToSeedData, getAdminToken, getHeadToken, getMemberToken, getTestMemberId } = require('../helpers/setup');
 
-beforeEach(() => {
-  resetToSeedData();
+beforeEach(async () => {
+  await resetToSeedData();
 });
 
 function authRequest(req, token = getAdminToken()) {
