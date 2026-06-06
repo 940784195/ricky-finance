@@ -9,7 +9,7 @@ const dbConnections = {};
 let activeDbName = process.env.NODE_ENV === 'test' ? 'test' : 'users';
 
 function getDbPath(dbName = activeDbName) {
-  return path.join(__dirname, 'data', `${dbName}.db`);
+  return path.join(__dirname, '..', 'data', `${dbName}.db`);
 }
 
 function setActiveDb(dbName) {

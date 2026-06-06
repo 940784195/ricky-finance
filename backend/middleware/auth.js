@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { findUserWithMember } = require('../db');
+const { findUserWithMember } = require('../db/db');
 
 const JWT_SECRET = 'ricky_finance_jwt_secret_2024';
 const JWT_EXPIRES_IN = '24h';

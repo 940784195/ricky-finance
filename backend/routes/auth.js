@@ -1,5 +1,5 @@
 const express = require('express');
-const { findUserByUsername, verifyPassword, findUserWithMember } = require('../db');
+const { findUserByUsername, verifyPassword, findUserWithMember } = require('../db/db');
 const { generateToken } = require('../middleware/auth');
 
 const router = express.Router();

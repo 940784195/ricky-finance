@@ -1,6 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 
 const app = express();
 const PORT = 3000;
@@ -34,9 +33,7 @@ app.use('/api/stats', authMiddleware, statsRoutes);
 const customersRoutes = require('./routes/customers');
 app.use('/api/customers', authMiddleware, customersRoutes);
 
-app.use(express.static(path.join(__dirname, '..', 'public')));
-
-const { getDb } = require('./db');
+const { getDb } = require('./db/db');
 
 if (require.main === module) {
   // 初始化数据库

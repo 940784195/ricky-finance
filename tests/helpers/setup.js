@@ -6,7 +6,7 @@ const fs = require('fs');
 process.env.NODE_ENV = 'test';
 
 // 现在再加载 db 模块
-const { getDb, closeAllDbs, setActiveDb, getDbPath } = require('../../server/db');
+const { getDb, closeAllDbs, setActiveDb, getDbPath } = require('../../backend/db/db');
 
 const JWT_SECRET = 'ricky_finance_jwt_secret_2024';
 

@@ -78,8 +78,38 @@ dist/
 *.sqlite
 *.db-shm
 *.db-wal
-server/data/*.db
-server/data/*.db-*
+backend/data/*.db
+backend/data/*.db-*
+
+# Flutter build outputs
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+*.iml
+*.ipr
+*.iws
+.idea/
+.metadata
+
+# Flutter build
+mobile/**/build/
+mobile/**/android/app/debug/
+mobile/**/android/app/profile/
+mobile/**/ios/Flutter/App.framework/
+mobile/**/ios/Flutter/Flutter.framework/
+mobile/**/ios/Flutter/Generated.xcconfig
+mobile/**/ios/Flutter/app.flx
+mobile/**/ios/Flutter/app.zip
+mobile/**/ios/Flutter/flutter_assets/
+mobile/**/ios/Flutter/flutter_export_environment.sh
+mobile/**/ios/ServiceDefinitions.json
+mobile/**/ios/Runner/GeneratedPluginRegistrant.*
+mobile/**/Pods/
+mobile/**/.symlinks/
+mobile/**/pubspec.lock
 
 # Temp files
 tmp/
