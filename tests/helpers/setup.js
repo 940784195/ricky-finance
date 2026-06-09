@@ -19,11 +19,7 @@ let secondFamilyId, secondHeadId, secondMemberId;
 let customTypeId;
 
 async function clearAllTables() {
-  await query('DELETE FROM records');
-  await query('DELETE FROM users');
-  await query('DELETE FROM asset_types');
-  await query('DELETE FROM members');
-  await query('DELETE FROM families');
+  await query('TRUNCATE TABLE records, users, asset_types, members, families RESTART IDENTITY CASCADE');
 }
 
 async function seedTestDbData() {
@@ -114,19 +110,19 @@ async function seedTestDbData() {
   const head2Hash = bcrypt.hashSync('head2pwd', 10);
 
   await query(
-    "INSERT INTO users (username, password, role, member_id) VALUES ('admin', $1, 'admin', NULL)",
+    "INSERT INTO users (username, password, role, member_id) VALUES ('admin', $1, 'admin', NULL) ON CONFLICT (username) DO NOTHING",
     [adminHash]
   );
   await query(
-    "INSERT INTO users (username, password, role, member_id) VALUES ('head', $1, 'head', $2)",
+    "INSERT INTO users (username, password, role, member_id) VALUES ('head', $1, 'head', $2) ON CONFLICT (username) DO NOTHING",
     [headHash, headId]
   );
   await query(
-    "INSERT INTO users (username, password, role, member_id) VALUES ('member', $1, 'member', $2)",
+    "INSERT INTO users (username, password, role, member_id) VALUES ('member', $1, 'member', $2) ON CONFLICT (username) DO NOTHING",
     [memberHash, member1Id]
   );
   await query(
-    "INSERT INTO users (username, password, role, member_id) VALUES ('head2', $1, 'head', $2)",
+    "INSERT INTO users (username, password, role, member_id) VALUES ('head2', $1, 'head', $2) ON CONFLICT (username) DO NOTHING",
     [head2Hash, head2Id]
   );
 

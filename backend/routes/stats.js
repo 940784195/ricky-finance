@@ -10,20 +10,19 @@ router.get('/', authMiddleware, async (req, res) => {
   let membersWhere = '';
   let membersParams = [];
   let whereConnector = 'WHERE';
-  let paramIndex = 1;
 
   if (req.user.role === 'admin') {
     whereConnector = 'WHERE';
   } else if (req.user.role === 'head') {
-    recordsWhere = `WHERE r.family_id = $${paramIndex++}`;
+    recordsWhere = 'WHERE r.family_id = $1';
     recordsParams.push(req.user.familyId);
-    membersWhere = `WHERE family_id = $${paramIndex++}`;
+    membersWhere = 'WHERE family_id = $1';
     membersParams.push(req.user.familyId);
     whereConnector = 'AND';
   } else {
-    recordsWhere = `WHERE r.member_id = $${paramIndex++}`;
+    recordsWhere = 'WHERE r.member_id = $1';
     recordsParams.push(req.user.memberId);
-    membersWhere = `WHERE id = $${paramIndex++}`;
+    membersWhere = 'WHERE id = $1';
     membersParams.push(req.user.memberId);
     whereConnector = 'AND';
   }
@@ -70,14 +69,15 @@ router.get('/', authMiddleware, async (req, res) => {
 
   const now = new Date();
   const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-  let monthlyWhere = `WHERE r.date >= $${paramIndex++}`;
+  let monthlyParamIndex = 1;
+  let monthlyWhere = `WHERE r.date >= $${monthlyParamIndex++}`;
   let monthlyParams = [monthStart];
 
   if (req.user.role === 'head') {
-    monthlyWhere += ` AND r.family_id = $${paramIndex++}`;
+    monthlyWhere += ` AND r.family_id = $${monthlyParamIndex++}`;
     monthlyParams.push(req.user.familyId);
   } else if (req.user.role === 'member') {
-    monthlyWhere += ` AND r.member_id = $${paramIndex++}`;
+    monthlyWhere += ` AND r.member_id = $${monthlyParamIndex++}`;
     monthlyParams.push(req.user.memberId);
   }
 
@@ -88,14 +88,15 @@ router.get('/', authMiddleware, async (req, res) => {
     monthlyParams
   );
 
-  let pendingWhere = `WHERE r.status = $${paramIndex++}`;
+  let pendingParamIndex = 1;
+  let pendingWhere = `WHERE r.status = $${pendingParamIndex++}`;
   let pendingParams = ['pending'];
 
   if (req.user.role === 'head') {
-    pendingWhere += ` AND r.family_id = $${paramIndex++}`;
+    pendingWhere += ` AND r.family_id = $${pendingParamIndex++}`;
     pendingParams.push(req.user.familyId);
   } else if (req.user.role === 'member') {
-    pendingWhere += ` AND r.member_id = $${paramIndex++}`;
+    pendingWhere += ` AND r.member_id = $${pendingParamIndex++}`;
     pendingParams.push(req.user.memberId);
   }
 

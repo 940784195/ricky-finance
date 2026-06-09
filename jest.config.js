@@ -6,5 +6,7 @@ module.exports = {
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov'],
   maxWorkers: 1,
-  testTimeout: 10000
+  testTimeout: 60000,
+  forceExit: true,
+  detectOpenHandles: true
 };

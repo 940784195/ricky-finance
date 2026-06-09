@@ -22,9 +22,16 @@ CREATE TABLE IF NOT EXISTS members (
 );
 
 -- 添加 families.head_id 外键（依赖 members 表）
-ALTER TABLE families
-    ADD CONSTRAINT fk_families_head
-    FOREIGN KEY (head_id) REFERENCES members(id) ON DELETE SET NULL;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_families_head'
+    ) THEN
+        ALTER TABLE families
+            ADD CONSTRAINT fk_families_head
+            FOREIGN KEY (head_id) REFERENCES members(id) ON DELETE SET NULL;
+    END IF;
+END $$;
 
 -- 资产类型表
 CREATE TABLE IF NOT EXISTS asset_types (

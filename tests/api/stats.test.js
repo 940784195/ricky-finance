@@ -1,6 +1,10 @@
 const request = require('supertest');
 const app = require('../../backend/index');
-const { resetToSeedData, getAdminToken, getHeadToken, getMemberToken } = require('../helpers/setup');
+const { initTestDb, resetToSeedData, getAdminToken, getHeadToken, getMemberToken } = require('../helpers/setup');
+
+beforeAll(async () => {
+  await initTestDb();
+});
 
 beforeEach(async () => {
   await resetToSeedData();

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class AppColors {
@@ -32,7 +33,17 @@ class AppColors {
 class ApiConfig {
   ApiConfig._();
 
-  static const String baseUrl = 'http://10.0.2.2:3000/api';
+  static String get baseUrl {
+    if (kIsWeb) {
+      return 'http://localhost:3000/api';
+    }
+    try {
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        return 'http://10.0.2.2:3000/api';
+      }
+    } catch (_) {}
+    return 'http://localhost:3000/api';
+  }
 
   static const Duration timeout = Duration(seconds: 15);
 }

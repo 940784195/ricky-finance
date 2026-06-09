@@ -1,5 +1,6 @@
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+const envFile = process.env.NODE_ENV === 'test' ? '.env.test' : '.env';
+require('dotenv').config({ path: path.join(__dirname, '..', '..', envFile) });
 
 const bcrypt = require('bcryptjs');
 const { pool } = require('./pgPool');
@@ -31,10 +32,11 @@ async function seedDefaultData() {
   );
   const member2Id = member2Result.rows[0].id;
 
-  await pool.query(
-    'INSERT INTO members (family_id, name, short_name, role) VALUES ($1, $2, $3, $4)',
+  const member3Result = await pool.query(
+    'INSERT INTO members (family_id, name, short_name, role) VALUES ($1, $2, $3, $4) RETURNING id',
     [familyId, '王五', '王', 'member']
   );
+  const member3Id = member3Result.rows[0].id;
 
   await pool.query('UPDATE families SET head_id = $1 WHERE id = $2', [headId, familyId]);
 
@@ -75,7 +77,7 @@ async function seedDefaultData() {
     [member2Id, familyId, 'fund', '华夏成长基金', 890000, 820000, '2026-05-27', 'valid', ''],
     [headId, familyId, 'fund', '易方达蓝筹基金', 850000, 780000, '2026-05-19', 'valid', '定投计划执行'],
     [member2Id, familyId, 'stock', '贵州茅台股票', 2300000, 2150000, '2026-05-18', 'valid', ''],
-    [3, familyId, 'cash', '定期存款', 1200000, 1200000, '2026-05-17', 'valid', '到期转存'],
+    [member3Id, familyId, 'cash', '定期存款', 1200000, 1200000, '2026-05-17', 'valid', '到期转存'],
   ];
   for (const [memberId, fid, type, name, value, prevValue, date, status, note] of records) {
     await pool.query(

@@ -1,6 +1,10 @@
-require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.env') });
+const path = require('path');
+const envFile = process.env.NODE_ENV === 'test' ? '.env.test' : '.env';
+require('dotenv').config({ path: path.join(__dirname, '..', '..', envFile) });
 
 const { Pool } = require('pg');
+
+const isLocal = (process.env.SUPABASE_DB_HOST || 'localhost') === 'localhost';
 
 const pool = new Pool({
   host: process.env.SUPABASE_DB_HOST || 'localhost',
@@ -11,6 +15,7 @@ const pool = new Pool({
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
+  ...(isLocal ? {} : { ssl: { rejectUnauthorized: false } }),
 });
 
 pool.on('error', (err) => {

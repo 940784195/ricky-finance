@@ -25,10 +25,11 @@ router.get('/asset-names', authMiddleware, async (req, res) => {
   }
 
   const sql = `
-    SELECT DISTINCT r.name
+    SELECT r.name
     FROM records r
     ${whereClauses.length ? 'WHERE ' + whereClauses.join(' AND ') : ''}
-    ORDER BY r.date DESC
+    GROUP BY r.name
+    ORDER BY MAX(r.date) DESC
     LIMIT 20
   `;
 
@@ -167,6 +168,7 @@ router.post('/', authMiddleware, async (req, res) => {
 });
 
 router.put('/:id', authMiddleware, async (req, res) => {
+  try {
   const recordResult = await query('SELECT * FROM records WHERE id = $1', [req.params.id]);
   const record = recordResult.rows[0];
 
@@ -186,13 +188,13 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
   await query(
     `UPDATE records
-     SET type = COALESCE($1, type),
-         name = COALESCE($2, name),
-         value = CASE WHEN $3 IS NOT NULL THEN $4 ELSE value END,
-         previous_value = CASE WHEN $5 IS NOT NULL THEN $6 ELSE previous_value END,
-         date = COALESCE($7, date),
-         status = COALESCE($8, status),
-         note = CASE WHEN $9 IS NOT NULL THEN $10 ELSE note END
+     SET type = COALESCE($1::TEXT, type),
+         name = COALESCE($2::TEXT, name),
+         value = CASE WHEN $3::REAL IS NOT NULL THEN $4::REAL ELSE value END,
+         previous_value = CASE WHEN $5::REAL IS NOT NULL THEN $6::REAL ELSE previous_value END,
+         date = COALESCE($7::TEXT, date),
+         status = COALESCE($8::TEXT, status),
+         note = CASE WHEN $9::TEXT IS NOT NULL THEN $10::TEXT ELSE note END
      WHERE id = $11`,
     [type, name, value, value, actualPreviousValue, actualPreviousValue, date, status, note, note, req.params.id]
   );
@@ -207,6 +209,10 @@ router.put('/:id', authMiddleware, async (req, res) => {
   );
 
   res.json({ success: true, data: updatedResult.rows[0] });
+  } catch (err) {
+    console.error('[PUT /records/:id] Error:', err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 router.delete('/:id', authMiddleware, async (req, res) => {

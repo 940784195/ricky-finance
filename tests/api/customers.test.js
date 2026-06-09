@@ -1,7 +1,11 @@
 const request = require('supertest');
 const app = require('../../backend/index');
-const { seedTestData, cleanupTestData, getAdminToken, getHeadToken, getMemberToken, getTestMemberId, getTestFamilyId, getTestData } = require('../helpers/setup');
+const { initTestDb, seedTestData, cleanupTestData, getAdminToken, getHeadToken, getMemberToken, getTestMemberId, getTestFamilyId, getTestData } = require('../helpers/setup');
 const { query } = require('../../backend/db/pgDb');
+
+beforeAll(async () => {
+  await initTestDb();
+});
 
 beforeEach(async () => {
   await seedTestData();

@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+const envFile = process.env.NODE_ENV === 'test' ? '.env.test' : '.env';
+require('dotenv').config({ path: path.join(__dirname, '..', '..', envFile) });
 
 const { pool } = require('./pgPool');
 
