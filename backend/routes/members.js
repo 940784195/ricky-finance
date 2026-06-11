@@ -1,21 +1,14 @@
 const express = require('express');
 const { query } = require('../db/pgDb');
 const { authMiddleware, requireRole } = require('../middleware/auth');
+const { buildScopeFilter, canAccess, requireOwnership } = require('../middleware/permissions');
 
 const router = express.Router();
 
 router.get('/', authMiddleware, async (req, res) => {
-  let whereClause = '';
-  let params = [];
-  let paramIndex = 1;
+  const { clause: scopeClause, params, nextIndex } = buildScopeFilter(req.user, 'm', 1, 'id');
 
-  if (req.user.role === 'head') {
-    whereClause = `WHERE m.family_id = $${paramIndex++}`;
-    params.push(req.user.familyId);
-  } else if (req.user.role === 'member') {
-    whereClause = `WHERE m.id = $${paramIndex++}`;
-    params.push(req.user.memberId);
-  }
+  const whereClause = scopeClause ? `WHERE ${scopeClause}` : '';
 
   const membersResult = await query(
     `SELECT m.*,
@@ -39,25 +32,16 @@ router.get('/', authMiddleware, async (req, res) => {
   res.json({ success: true, data: membersResult.rows });
 });
 
-router.get('/:id', authMiddleware, async (req, res) => {
-  const memberResult = await query(
+const loadMember = (req) =>
+  query(
     `SELECT m.*,
       (SELECT COUNT(*) FROM records r WHERE r.member_id = m.id) as record_count
      FROM members m WHERE m.id = $1`,
     [req.params.id]
-  );
+  ).then(result => result.rows[0]);
 
-  const member = memberResult.rows[0];
-  if (!member) {
-    return res.status(404).json({ success: false, message: '成员不存在' });
-  }
-
-  if (req.user.role === 'head' && member.family_id !== req.user.familyId) {
-    return res.status(403).json({ success: false, message: '无权访问此成员' });
-  }
-  if (req.user.role === 'member' && member.id !== req.user.memberId) {
-    return res.status(403).json({ success: false, message: '无权访问此成员' });
-  }
+router.get('/:id', authMiddleware, requireOwnership('成员', loadMember, 'id'), async (req, res) => {
+  const member = req.resource;
 
   const recordsResult = await query(
     `SELECT r.*, at.display_name as type_display, at.color as type_color
@@ -91,17 +75,7 @@ router.post('/', authMiddleware, requireRole('head'), async (req, res) => {
   res.status(201).json({ success: true, data: newMember.rows[0] });
 });
 
-router.put('/:id', authMiddleware, requireRole('head'), async (req, res) => {
-  const memberResult = await query('SELECT * FROM members WHERE id = $1', [req.params.id]);
-  const member = memberResult.rows[0];
-
-  if (!member) {
-    return res.status(404).json({ success: false, message: '成员不存在' });
-  }
-  if (member.family_id !== req.user.familyId) {
-    return res.status(403).json({ success: false, message: '无权修改此成员' });
-  }
-
+router.put('/:id', authMiddleware, requireRole('head'), requireOwnership('成员', loadMember, 'id'), async (req, res) => {
   const { name, shortName, role } = req.body;
 
   await query(
@@ -117,17 +91,7 @@ router.put('/:id', authMiddleware, requireRole('head'), async (req, res) => {
   res.json({ success: true, data: updated.rows[0] });
 });
 
-router.delete('/:id', authMiddleware, requireRole('head'), async (req, res) => {
-  const memberResult = await query('SELECT * FROM members WHERE id = $1', [req.params.id]);
-  const member = memberResult.rows[0];
-
-  if (!member) {
-    return res.status(404).json({ success: false, message: '成员不存在' });
-  }
-  if (member.family_id !== req.user.familyId) {
-    return res.status(403).json({ success: false, message: '无权删除此成员' });
-  }
-
+router.delete('/:id', authMiddleware, requireRole('head'), requireOwnership('成员', loadMember, 'id'), async (req, res) => {
   await query('UPDATE users SET member_id = NULL WHERE member_id = $1', [req.params.id]);
   await query('DELETE FROM records WHERE member_id = $1', [req.params.id]);
   await query('DELETE FROM members WHERE id = $1', [req.params.id]);

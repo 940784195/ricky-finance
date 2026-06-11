@@ -1,23 +1,16 @@
 const express = require('express');
 const { query } = require('../db/pgDb');
 const { authMiddleware } = require('../middleware/auth');
+const { buildScopeFilter, canAccess, requireOwnership } = require('../middleware/permissions');
 
 const router = express.Router();
 
 router.get('/asset-names', authMiddleware, async (req, res) => {
   const { keyword } = req.query;
+  const { clause: scopeClause, params, nextIndex } = buildScopeFilter(req.user, 'r');
 
-  let whereClauses = [];
-  let params = [];
-  let paramIndex = 1;
-
-  if (req.user.role === 'head') {
-    whereClauses.push(`r.family_id = $${paramIndex++}`);
-    params.push(req.user.familyId);
-  } else if (req.user.role === 'member') {
-    whereClauses.push(`r.member_id = $${paramIndex++}`);
-    params.push(req.user.memberId);
-  }
+  let whereClauses = scopeClause ? [scopeClause] : [];
+  let paramIndex = nextIndex;
 
   if (keyword) {
     whereClauses.push(`r.name LIKE $${paramIndex++}`);
@@ -40,18 +33,11 @@ router.get('/asset-names', authMiddleware, async (req, res) => {
 
 router.get('/', authMiddleware, async (req, res) => {
   const { memberId, type, status, startDate, endDate, keyword } = req.query;
+  const { clause: scopeClause, params, nextIndex } = buildScopeFilter(req.user, 'r');
 
   let whereClauses = ['1=1'];
-  let params = [];
-  let paramIndex = 1;
-
-  if (req.user.role === 'head') {
-    whereClauses.push(`r.family_id = $${paramIndex++}`);
-    params.push(req.user.familyId);
-  } else if (req.user.role === 'member') {
-    whereClauses.push(`r.member_id = $${paramIndex++}`);
-    params.push(req.user.memberId);
-  }
+  if (scopeClause) whereClauses.push(scopeClause);
+  let paramIndex = nextIndex;
 
   if (memberId) {
     whereClauses.push(`r.member_id = $${paramIndex++}`);
@@ -91,29 +77,18 @@ router.get('/', authMiddleware, async (req, res) => {
   res.json({ success: true, data: result.rows });
 });
 
-router.get('/:id', authMiddleware, async (req, res) => {
-  const result = await query(
+const loadRecord = (req) =>
+  query(
     `SELECT r.*, m.name as member_name, at.display_name as type_display, at.color as type_color
      FROM records r
      JOIN members m ON r.member_id = m.id
      LEFT JOIN asset_types at ON r.type = at.type_value
      WHERE r.id = $1`,
     [req.params.id]
-  );
+  ).then(result => result.rows[0]);
 
-  const record = result.rows[0];
-  if (!record) {
-    return res.status(404).json({ success: false, message: '记录不存在' });
-  }
-
-  if (req.user.role !== 'admin' && record.family_id !== req.user.familyId) {
-    return res.status(403).json({ success: false, message: '无权访问此记录' });
-  }
-  if (req.user.role === 'member' && record.member_id !== req.user.memberId) {
-    return res.status(403).json({ success: false, message: '无权访问此记录' });
-  }
-
-  res.json({ success: true, data: record });
+router.get('/:id', authMiddleware, requireOwnership('记录', loadRecord), async (req, res) => {
+  res.json({ success: true, data: req.resource });
 });
 
 router.post('/', authMiddleware, async (req, res) => {
@@ -129,7 +104,7 @@ router.post('/', authMiddleware, async (req, res) => {
   if (req.user.role === 'head' && memberId) {
     const memberResult = await query('SELECT * FROM members WHERE id = $1', [memberId]);
     const member = memberResult.rows[0];
-    if (!member || member.family_id !== req.user.familyId) {
+    if (!member || !canAccess(req.user, member, 'id')) {
       return res.status(403).json({ success: false, message: '无权为该成员添加记录' });
     }
   }
@@ -167,21 +142,12 @@ router.post('/', authMiddleware, async (req, res) => {
   res.status(201).json({ success: true, data: newResult.rows[0] });
 });
 
-router.put('/:id', authMiddleware, async (req, res) => {
+const loadRecordById = (req) =>
+  query('SELECT * FROM records WHERE id = $1', [req.params.id]).then(result => result.rows[0]);
+
+router.put('/:id', authMiddleware, requireOwnership('记录', loadRecordById), async (req, res) => {
   try {
-  const recordResult = await query('SELECT * FROM records WHERE id = $1', [req.params.id]);
-  const record = recordResult.rows[0];
-
-  if (!record) {
-    return res.status(404).json({ success: false, message: '记录不存在' });
-  }
-
-  if (req.user.role === 'member' && record.member_id !== req.user.memberId) {
-    return res.status(403).json({ success: false, message: '无权修改此记录' });
-  }
-  if (req.user.role === 'head' && record.family_id !== req.user.familyId) {
-    return res.status(403).json({ success: false, message: '无权修改此记录' });
-  }
+  const record = req.resource;
 
   const { type, name, value, date, previousValue, status, note, previous_value } = req.body;
   const actualPreviousValue = previousValue !== undefined ? previousValue : previous_value;
@@ -215,21 +181,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-router.delete('/:id', authMiddleware, async (req, res) => {
-  const recordResult = await query('SELECT * FROM records WHERE id = $1', [req.params.id]);
-  const record = recordResult.rows[0];
-
-  if (!record) {
-    return res.status(404).json({ success: false, message: '记录不存在' });
-  }
-
-  if (req.user.role === 'member' && record.member_id !== req.user.memberId) {
-    return res.status(403).json({ success: false, message: '无权删除此记录' });
-  }
-  if (req.user.role === 'head' && record.family_id !== req.user.familyId) {
-    return res.status(403).json({ success: false, message: '无权删除此记录' });
-  }
-
+router.delete('/:id', authMiddleware, requireOwnership('记录', loadRecordById), async (req, res) => {
   await query('DELETE FROM records WHERE id = $1', [req.params.id]);
   res.json({ success: true, message: '记录已删除' });
 });

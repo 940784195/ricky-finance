@@ -1,31 +1,17 @@
 const express = require('express');
 const { query } = require('../db/pgDb');
 const { authMiddleware } = require('../middleware/auth');
+const { buildScopeFilter } = require('../middleware/permissions');
 
 const router = express.Router();
 
 router.get('/', authMiddleware, async (req, res) => {
-  let recordsWhere = '';
-  let recordsParams = [];
-  let membersWhere = '';
-  let membersParams = [];
-  let whereConnector = 'WHERE';
+  const recordsFilter = buildScopeFilter(req.user, 'r');
+  const membersFilter = buildScopeFilter(req.user, 'm', 1, 'id');
 
-  if (req.user.role === 'admin') {
-    whereConnector = 'WHERE';
-  } else if (req.user.role === 'head') {
-    recordsWhere = 'WHERE r.family_id = $1';
-    recordsParams.push(req.user.familyId);
-    membersWhere = 'WHERE family_id = $1';
-    membersParams.push(req.user.familyId);
-    whereConnector = 'AND';
-  } else {
-    recordsWhere = 'WHERE r.member_id = $1';
-    recordsParams.push(req.user.memberId);
-    membersWhere = 'WHERE id = $1';
-    membersParams.push(req.user.memberId);
-    whereConnector = 'AND';
-  }
+  const recordsWhere = recordsFilter.clause ? `WHERE ${recordsFilter.clause}` : '';
+  const membersWhere = membersFilter.clause ? `WHERE ${membersFilter.clause}` : '';
+  const whereConnector = recordsFilter.clause ? 'AND' : 'WHERE';
 
   const allValidResult = await query(
     `SELECT r.id, r.name, r.value, r.type, r.status, r.created_at, r.date, r.member_id
@@ -33,7 +19,7 @@ router.get('/', authMiddleware, async (req, res) => {
      ${recordsWhere}
      ${whereConnector} r.status = 'valid'
      ORDER BY r.member_id, r.name, r.date DESC, r.id DESC`,
-    recordsParams
+    recordsFilter.params
   );
 
   const latestRecordMap = {};
@@ -51,7 +37,7 @@ router.get('/', authMiddleware, async (req, res) => {
     `SELECT COUNT(*) as total_records
      FROM records r
      ${recordsWhere}`,
-    recordsParams
+    recordsFilter.params
   );
   const totalRecords = parseInt(totalResult.rows[0].total_records);
 
@@ -63,23 +49,15 @@ router.get('/', authMiddleware, async (req, res) => {
       ) THEN m.id END) as active_members
      FROM members m
      ${membersWhere}`,
-    membersParams
+    membersFilter.params
   );
   const membersStats = membersStatsResult.rows[0];
 
   const now = new Date();
   const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-  let monthlyParamIndex = 1;
-  let monthlyWhere = `WHERE r.date >= $${monthlyParamIndex++}`;
-  let monthlyParams = [monthStart];
-
-  if (req.user.role === 'head') {
-    monthlyWhere += ` AND r.family_id = $${monthlyParamIndex++}`;
-    monthlyParams.push(req.user.familyId);
-  } else if (req.user.role === 'member') {
-    monthlyWhere += ` AND r.member_id = $${monthlyParamIndex++}`;
-    monthlyParams.push(req.user.memberId);
-  }
+  const monthlyFilter = buildScopeFilter(req.user, 'r', 2);
+  const monthlyWhere = `WHERE r.date >= $1${monthlyFilter.clause ? ' AND ' + monthlyFilter.clause : ''}`;
+  const monthlyParams = [monthStart, ...monthlyFilter.params];
 
   const monthlyResult = await query(
     `SELECT COUNT(*) as monthly_new
@@ -88,17 +66,9 @@ router.get('/', authMiddleware, async (req, res) => {
     monthlyParams
   );
 
-  let pendingParamIndex = 1;
-  let pendingWhere = `WHERE r.status = $${pendingParamIndex++}`;
-  let pendingParams = ['pending'];
-
-  if (req.user.role === 'head') {
-    pendingWhere += ` AND r.family_id = $${pendingParamIndex++}`;
-    pendingParams.push(req.user.familyId);
-  } else if (req.user.role === 'member') {
-    pendingWhere += ` AND r.member_id = $${pendingParamIndex++}`;
-    pendingParams.push(req.user.memberId);
-  }
+  const pendingFilter = buildScopeFilter(req.user, 'r', 2);
+  const pendingWhere = `WHERE r.status = $1${pendingFilter.clause ? ' AND ' + pendingFilter.clause : ''}`;
+  const pendingParams = ['pending', ...pendingFilter.params];
 
   const pendingResult = await query(
     `SELECT COUNT(*) as pending_count

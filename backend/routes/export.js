@@ -1,23 +1,17 @@
 const express = require('express');
 const { query } = require('../db/pgDb');
 const { authMiddleware } = require('../middleware/auth');
+const { buildScopeFilter } = require('../middleware/permissions');
 
 const router = express.Router();
 
 router.get('/csv', authMiddleware, async (req, res) => {
   const { memberId, type, startDate, endDate } = req.query;
+  const { clause: scopeClause, params, nextIndex } = buildScopeFilter(req.user, 'r');
 
   let whereClauses = ['1=1'];
-  let params = [];
-  let paramIndex = 1;
-
-  if (req.user.role === 'head') {
-    whereClauses.push(`r.family_id = $${paramIndex++}`);
-    params.push(req.user.familyId);
-  } else if (req.user.role === 'member') {
-    whereClauses.push(`r.member_id = $${paramIndex++}`);
-    params.push(req.user.memberId);
-  }
+  if (scopeClause) whereClauses.push(scopeClause);
+  let paramIndex = nextIndex;
 
   if (memberId) {
     whereClauses.push(`r.member_id = $${paramIndex++}`);
