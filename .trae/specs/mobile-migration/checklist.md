@@ -17,8 +17,8 @@
 - [x] Visual Studio Community 2019 已安装（Windows 桌面开发可用）
 - [x] Chrome 可用（Web 开发）
 - [x] `flutter doctor` Flutter 行绿色勾 ✅
-- [ ] Android Studio + Android SDK 已配置，模拟器可正常运行
-- [ ] Supabase 项目已创建，数据库可连接
+- [x] Android Studio + Android SDK 已配置，模拟器可正常运行 ✅
+- [ ] Supabase 项目已创建，数据库可连接（当前使用本地 PostgreSQL 替代）
 - [ ] VS Code Flutter/Dart 插件已安装
 - [ ] `.env` 文件已创建，包含所有必需的环境变量
 - [ ] `JWT_SECRET` 已从硬编码迁移到环境变量
@@ -30,6 +30,12 @@
 - [x] Git 仅在系统 PATH 中，Flutter 无法识别 → 添加到用户 PATH
 - [x] pub.dev 网络超时 → 配置 Flutter 国内镜像
 - [x] Flutter 缓存损坏（flutter_tools.snapshot 缺失）→ 删除 cache 重建
+- [x] NDK 版本不匹配 → 安装 NDK 27.0.12077973，匹配 build.gradle.kts
+- [x] CMake 版本冲突（ninja 失败）→ 移除显式 CMake 版本配置，使用 SDK 内置 3.22.1
+- [x] Gradle 仓库配置冲突 → settings.gradle.kts 改为 PREFER_SETTINGS 模式
+- [x] Gradle 下载超时 → 等待重试后成功
+- [x] `Type 'Color' not found` → formatters.dart 添加 flutter/material.dart 导入
+- [x] Android 模拟器启动 → Pixel 6 API 34，应用成功安装运行
 
 ---
 
@@ -70,8 +76,8 @@
 ### 项目初始化
 - [x] `pubspec.yaml` 依赖完整
 - [x] 目录结构按设计组织（models/database/providers/services/screens/widgets/utils）
-- [ ] `flutter pub get` 无错误
-- [ ] `flutter run` 在模拟器正常启动
+- [x] `flutter pub get` 无错误
+- [x] `flutter run` 在模拟器正常启动 ✅
 
 ### 数据模型
 - [x] 5 个 Dart 数据类定义完整（User/Family/Member/AssetType/Record）
@@ -79,8 +85,8 @@
 
 ### Drift 数据库
 - [x] Drift 表结构定义完整（5 张表 + sync_status 字段）
-- [ ] `build_runner` 代码生成成功
-- [ ] 数据库初始化成功
+- [x] `build_runner` 代码生成成功
+- [x] 数据库初始化成功
 
 ### API 服务层
 - [x] `ApiService` 类封装完整
@@ -262,3 +268,4 @@
 |------|------|---------|------|
 | 2026-06-06 | v1.0 | 初始版本，覆盖 5 个 Phase 验证项 | AI Agent |
 | 2026-06-06 | v1.1 | 更新 Phase 0 环境配置实际状态，标记已完成项 | AI Agent |
+| 2026-06-11 | v1.2 | 标记 Android Studio/模拟器/NDK/CMake 配置完成；标记 flutter pub get/build_runner/flutter run 完成；新增踩坑记录（NDK/CMake/Gradle/Color） | AI Agent |

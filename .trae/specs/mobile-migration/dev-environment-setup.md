@@ -126,12 +126,12 @@
 
 ---
 
-### 3.6 Android Studio（Android 开发工具）⬜ 待安装
+### 3.6 Android Studio（Android 开发工具）✅ 已安装
 
 | 项目 | 详情 |
 |------|------|
 | **用途** | Android SDK 管理、模拟器运行、APK 打包 |
-| **推荐版本** | **最新稳定版（Ladybug 2024.2+）** |
+| **当前版本** | **Android Studio Ladybug 2024.2+** ✅ |
 | **国内镜像** | https://mirrors.huaweicloud.com/androidstudio/ |
 | **备用镜像** | https://mirrors.cloud.tencent.com/AndroidSDK/ |
 | **官方国内** | https://developer.android.google.cn/studio?hl=zh-cn |
@@ -157,6 +157,20 @@ PATH 添加:
 D:\dev\android-sdk\platform-tools
 D:\dev\android-sdk\emulator
 ```
+
+**NDK 与 CMake 配置**:
+
+| 组件 | 版本 | 路径 |
+|------|------|------|
+| NDK (Side-by-side) | **27.0.12077973** | `D:\dev\android-sdk\ndk\27.0.12077973` |
+| CMake | **3.22.1**（随 Android SDK 自动管理） | `D:\dev\android-sdk\cmake\3.22.1.4988404` |
+
+> ⚠️ **NDK 版本说明**: 项目 `build.gradle.kts` 中 `ndkVersion = "27.0.12077973"`，需在 SDK Manager → SDK Tools 中勾选 "NDK (Side by side)" → 安装 27.0.12077973。CMake 无需手动安装，Gradle 会自动使用 Android SDK 内置版本。
+
+**模拟器配置**:
+- 设备: Pixel 6
+- API 级别: 34
+- 验证: `flutter devices` 可检测到模拟器，`flutter run` 可正常启动应用
 
 ---
 
@@ -248,6 +262,8 @@ dart run build_runner build
 | **免费层** | 500MB 数据库 + 5GB 带宽/月 |
 | **推荐区域** | Asia Pacific (Southeast Asia) |
 
+> ⚠️ **当前状态**: Supabase 云端数据库因 DNS 解析问题暂时无法连接（`getaddrinfo ENOTFOUND aws-1-ap-northeast-2.pooler.supabase.com`），当前使用**本地 PostgreSQL** 进行开发测试。后续可切换到 Supabase 或继续使用本地数据库。
+
 配置步骤:
 1. 注册账号 → 创建新项目 → 设置数据库密码
 2. Project Settings → Database → Connection string → 复制信息
@@ -266,6 +282,13 @@ NODE_ENV=development
 4. 运行迁移: `node backend/db/migrate.js`
 5. 初始化数据: `node backend/db/seed.js`
 6. 验证: `npm test`
+
+**本地 PostgreSQL 替代方案**（当前使用）:
+- Host: `localhost`
+- Port: `5432`
+- Database: `postgres`
+- User: `postgres`
+- 测试通过: 99 个测试用例全部通过 ✅
 
 ---
 
@@ -297,11 +320,12 @@ NODE_ENV=development
 | 5 | JDK 17 | `java -version` | `openjdk version "17.0.19"` | ✅ |
 | 6 | Flutter | `flutter --version` | `Flutter 3.29.3` | ✅ |
 | 7 | Dart | `dart --version` | `Dart SDK version: 3.x` | ✅ |
-| 8 | Android SDK | `flutter doctor` | Android toolchain ✅ | ⬜ |
-| 9 | 后端依赖 | `npm install` | 无错误 | ⬜ |
-| 10 | 移动端依赖 | `flutter pub get` | 无错误 | ⬜ |
-| 11 | Drift 生成 | `dart run build_runner build` | 无错误 | ⬜ |
-| 12 | Supabase | `npm test` | 全部通过 | ⬜ |
+| 8 | Android SDK | `flutter doctor` | Android toolchain ✅ | ✅ |
+| 9 | 后端依赖 | `npm install` | 无错误 | ✅ |
+| 10 | 移动端依赖 | `flutter pub get` | 无错误 | ✅ |
+| 11 | Drift 生成 | `dart run build_runner build` | 无错误 | ✅ |
+| 12 | 后端测试 | `npm test` | 99 passed | ✅ |
+| 13 | Android 模拟器 | `flutter run` | 应用正常启动 | ✅ |
 
 ---
 
@@ -443,6 +467,74 @@ is removed from the PATH environment variable.
 
 ---
 
+### 错误 8: `ninja: fatal: GetOverlappedResult` (CMake 版本冲突)
+
+**现象**: Android 构建时 CMake/ninja 编译失败
+```
+ninja: fatal: GetOverlappedResult: 操作成功完成
+```
+
+**原因**: `build.gradle.kts` 中显式指定了 CMake 版本（如 3.26.3），与 NDK 27 不兼容
+
+**解决**:
+1. 移除 `build.gradle.kts` 中 `externalNativeBuild { cmake { version = "..." } }` 配置
+2. 让 Gradle 自动使用 Android SDK 内置的 CMake 3.22.1（与 NDK 27 兼容）
+3. 确保 `ndkVersion = "27.0.12077973"` 与 SDK Manager 中安装的 NDK 版本一致
+
+---
+
+### 错误 9: `Type 'Color' not found` (缺少 Flutter 依赖)
+
+**现象**: 编译时报 `Error: Type 'Color' not found`
+
+**原因**: `formatters.dart` 中使用了 `Color` 类但未导入 `package:flutter/material.dart`
+
+**解决**: 在 `lib/utils/formatters.dart` 文件顶部添加:
+```dart
+import 'package:flutter/material.dart';
+```
+
+---
+
+### 错误 10: Gradle 仓库配置冲突
+
+**现象**:
+```
+Build was configured to prefer settings repositories over project repositories 
+but repository 'maven' was added by settings file 'settings.gradle.kts'
+```
+
+**原因**: `settings.gradle.kts` 中 `dependencyResolutionManagement` 的 `repositoriesMode` 设置为 `FAIL_ON_PROJECT_REPOS`，但 plugin 声明中又添加了 `maven` 仓库
+
+**解决**: 修改 `settings.gradle.kts`，将 `repositoriesMode` 改为 `PREFER_SETTINGS`:
+```kotlin
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+```
+
+---
+
+### 错误 11: Gradle 下载超时（网络问题）
+
+**现象**: 首次构建时 Gradle Wrapper 下载超时
+```
+java.net.SocketException: Connection reset
+```
+
+**原因**: 国内网络访问 `services.gradle.org` 不稳定
+
+**解决**:
+1. 等待重试（Gradle Wrapper 会自动重试）
+2. 或手动下载 `gradle-8.x-bin.zip` 放到 `%USERPROFILE%\.gradle\wrapper\dists\` 对应目录
+3. 或配置 Gradle 国内镜像（`%USERPROFILE%\.gradle\init.gradle`）
+
+---
+
 ## 九、推荐 IDE 与插件
 
 ### VS Code（推荐用于 Flutter 开发）
@@ -475,8 +567,14 @@ is removed from the PATH environment variable.
 ✅ Visual Studio 2019     (Windows 桌面开发)
 ✅ Chrome                 (Web 开发)
 ✅ Flutter 国内镜像       已配置
-⬜ Android Studio         (待安装)
-⬜ Supabase               (待配置)
+✅ Android Studio         D:\Program Files\Android\Android Studio
+✅ Android SDK            D:\dev\android-sdk (Platform 34)
+✅ NDK 27.0.12077973      D:\dev\android-sdk\ndk\27.0.12077973
+✅ CMake 3.22.1           (随 Android SDK)
+✅ Android 模拟器          Pixel 6 API 34，应用可正常启动运行
+✅ 后端测试               99 个测试用例全部通过
+✅ 本地 PostgreSQL        连接正常
+⬜ Supabase 云端数据库     (DNS 解析问题，待后续解决)
 ⬜ .env 文件              (待创建)
 ```
 
@@ -488,3 +586,4 @@ is removed from the PATH environment variable.
 |------|------|---------|------|
 | 2026-06-06 | v1.0 | 初始版本，基于项目实际环境检测结果 | AI Agent |
 | 2026-06-06 | v1.1 | 更新所有工具实际版本号，添加踩坑记录和已解决问题，标记已完成项 | AI Agent |
+| 2026-06-11 | v1.2 | 更新 Android Studio/NDK/CMake 为已安装状态；新增模拟器配置说明；新增错误 8-11（CMake冲突/Color缺失/Gradle仓库/Gradle超时）；更新环境状态总览和验证清单；标记后端测试通过和本地 PostgreSQL 可用 | AI Agent |
