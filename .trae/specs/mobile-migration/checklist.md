@@ -18,9 +18,9 @@
 - [x] Chrome 可用（Web 开发）
 - [x] `flutter doctor` Flutter 行绿色勾 ✅
 - [x] Android Studio + Android SDK 已配置，模拟器可正常运行 ✅
-- [ ] Supabase 项目已创建，数据库可连接（当前使用本地 PostgreSQL 替代）
+- [x] Supabase 项目已创建，数据库可连接 ✅（IP 直连，99 测试通过）
 - [ ] VS Code Flutter/Dart 插件已安装
-- [ ] `.env` 文件已创建，包含所有必需的环境变量
+- [x] `.env` 文件已创建，包含所有必需的环境变量 ✅
 - [ ] `JWT_SECRET` 已从硬编码迁移到环境变量
 - [ ] `.env` 已在 `.gitignore` 中
 
@@ -36,6 +36,7 @@
 - [x] Gradle 下载超时 → 等待重试后成功
 - [x] `Type 'Color' not found` → formatters.dart 添加 flutter/material.dart 导入
 - [x] Android 模拟器启动 → Pixel 6 API 34，应用成功安装运行
+- [x] Supabase DNS 解析失败 → 使用 IP 地址 `43.202.154.182` 直连成功
 
 ---
 

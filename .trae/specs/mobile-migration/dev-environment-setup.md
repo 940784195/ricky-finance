@@ -253,42 +253,33 @@ dart run build_runner build
 
 ## 五、外部服务配置
 
-### 5.1 Supabase（数据库托管）⬜ 待配置
+### 5.1 Supabase（数据库托管）✅ 已配置
 
 | 项目 | 详情 |
 |------|------|
 | **用途** | PostgreSQL 数据库托管 |
 | **注册地址** | https://supabase.com |
 | **免费层** | 500MB 数据库 + 5GB 带宽/月 |
-| **推荐区域** | Asia Pacific (Southeast Asia) |
+| **当前状态** | **已配置并连接正常** ✅ |
+| **连接信息** | IP 直连（避免 DNS 解析问题） |
+| **测试状态** | 99 个测试用例全部通过 |
 
-> ⚠️ **当前状态**: Supabase 云端数据库因 DNS 解析问题暂时无法连接（`getaddrinfo ENOTFOUND aws-1-ap-northeast-2.pooler.supabase.com`），当前使用**本地 PostgreSQL** 进行开发测试。后续可切换到 Supabase 或继续使用本地数据库。
-
-配置步骤:
-1. 注册账号 → 创建新项目 → 设置数据库密码
-2. Project Settings → Database → Connection string → 复制信息
-3. 在项目根目录创建 `.env` 文件:
+配置信息:
 ```
-SUPABASE_DB_HOST=db.xxxxxx.supabase.co
+SUPABASE_DB_HOST=43.202.154.182  # IP 地址直连
 SUPABASE_DB_PORT=5432
 SUPABASE_DB_NAME=postgres
-SUPABASE_DB_USER=postgres
-SUPABASE_DB_PASSWORD=your-password
-JWT_SECRET=ricky_finance_jwt_secret_2024
-DEEPSEEK_API_KEY=sk-your-deepseek-api-key
-KIMI_API_KEY=sk-your-kimi-api-key
-NODE_ENV=development
+SUPABASE_DB_USER=postgres.vuypcncjhbwyyvpcxlly
+SUPABASE_DB_PASSWORD=HON85552077BIN
 ```
-4. 运行迁移: `node backend/db/migrate.js`
-5. 初始化数据: `node backend/db/seed.js`
-6. 验证: `npm test`
 
-**本地 PostgreSQL 替代方案**（当前使用）:
-- Host: `localhost`
-- Port: `5432`
-- Database: `postgres`
-- User: `postgres`
-- 测试通过: 99 个测试用例全部通过 ✅
+**验证步骤**:
+1. 连接测试: `node test-supabase-connection.js` → 连接成功
+2. 表结构检查: 5 张表已存在（users/families/members/asset_types/records）
+3. 数据验证: 种子数据已初始化
+4. API 测试: `npm test` → 99 个测试全部通过
+
+> ⚠️ **注意**: 使用 IP 地址 `43.202.154.182` 替代域名，解决 DNS 解析问题。如果后续 IP 变更，需在 Supabase 控制台获取新的连接信息。
 
 ---
 
@@ -571,11 +562,10 @@ java.net.SocketException: Connection reset
 ✅ Android SDK            D:\dev\android-sdk (Platform 34)
 ✅ NDK 27.0.12077973      D:\dev\android-sdk\ndk\27.0.12077973
 ✅ CMake 3.22.1           (随 Android SDK)
-✅ Android 模拟器          Pixel 6 API 34，应用可正常启动运行
+✅ Android 模拟器         Pixel 6 API 34，应用可正常启动运行
 ✅ 后端测试               99 个测试用例全部通过
-✅ 本地 PostgreSQL        连接正常
-⬜ Supabase 云端数据库     (DNS 解析问题，待后续解决)
-⬜ .env 文件              (待创建)
+✅ Supabase 云端数据库    已配置并连接正常（IP 直连）
+⬜ .env 文件              (已创建，需补充 JWT_SECRET 等)
 ```
 
 ---

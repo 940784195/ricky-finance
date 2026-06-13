@@ -33,13 +33,62 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     if (!success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(auth.error ?? '登录失败'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      // 显示详细的错误提示对话框
+      _showErrorDialog(auth.error ?? '登录失败');
     }
+  }
+
+  void _showErrorDialog(String error) {
+    String title = '登录失败';
+    String message = error;
+    String icon = '❌';
+    
+    // 根据错误类型设置不同的图标和标题
+    if (error.contains('用户名或密码错误')) {
+      title = '认证失败';
+      icon = '🔐';
+      message = '用户名或密码错误，请检查后重试。\n\n提示：默认用户：\n- admin / admin123\n- head / head123\n- member / member123';
+    } else if (error.contains('用户不存在')) {
+      title = '用户不存在';
+      icon = '👤';
+      message = '您输入的用户名不存在，请检查用户名。\n\n系统现有用户：admin, head, member, head2';
+    } else if (error.contains('网络连接失败') || error.contains('无法连接到服务器')) {
+      title = '网络连接失败';
+      icon = '📶';
+      message = '无法连接到服务器，请检查：\n1. 后端服务是否已启动\n2. 网络连接是否正常\n3. 防火墙设置';
+    } else if (error.contains('连接超时')) {
+      title = '连接超时';
+      icon = '⏰';
+      message = '服务器响应超时，请检查：\n1. 网络连接是否稳定\n2. 服务器是否正常运行\n3. 稍后重试';
+    } else if (error.contains('服务器内部错误')) {
+      title = '服务器错误';
+      icon = '⚙️';
+      message = '服务器遇到问题，请稍后重试。\n\n如果问题持续存在，请联系管理员。';
+    } else if (error.contains('服务暂时不可用')) {
+      title = '服务不可用';
+      icon = '🚧';
+      message = '服务暂时维护中，请稍后重试。';
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Text(icon),
+            const SizedBox(width: 8),
+            Text(title),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

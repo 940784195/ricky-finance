@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import '../models/models.dart';
 import '../services/api_service.dart';
 
@@ -61,12 +63,39 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } on ApiException catch (e) {
-      _error = e.message;
+      // 根据状态码提供更具体的错误信息
+      if (e.statusCode == 401) {
+        _error = '用户名或密码错误，请检查后重试';
+      } else if (e.statusCode == 404) {
+        _error = '用户不存在，请检查用户名';
+      } else if (e.statusCode == 500) {
+        _error = '服务器内部错误，请稍后重试';
+      } else if (e.statusCode == 503) {
+        _error = '服务暂时不可用，请稍后重试';
+      } else {
+        _error = e.message;
+      }
+      
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } on http.ClientException {
+      _error = '网络连接失败，请检查网络设置';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } on SocketException {
+      _error = '无法连接到服务器，请检查网络连接';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    } on TimeoutException {
+      _error = '连接超时，请检查网络或稍后重试';
       _isLoading = false;
       notifyListeners();
       return false;
     } catch (e) {
-      _error = '网络连接失败，请检查网络设置';
+      _error = '登录失败，请稍后重试';
       _isLoading = false;
       notifyListeners();
       return false;

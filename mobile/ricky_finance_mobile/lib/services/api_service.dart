@@ -77,13 +77,45 @@ class ApiService {
 
   dynamic _handleResponse(http.Response response) {
     final body = jsonDecode(response.body);
+    
     if (response.statusCode == 401) {
       _onUnauthorized?.call();
-      throw ApiException(body['message'] ?? '登录已过期', statusCode: 401);
+      throw ApiException(body['message'] ?? '登录已过期，请重新登录', statusCode: 401);
     }
+    
     if (response.statusCode >= 400) {
-      throw ApiException(body['message'] ?? '请求失败', statusCode: response.statusCode);
+      String errorMessage;
+      
+      // 根据状态码和错误类型提供更友好的错误信息
+      switch (response.statusCode) {
+        case 400:
+          errorMessage = body['message'] ?? '请求参数错误';
+          break;
+        case 401:
+          errorMessage = body['message'] ?? '用户名或密码错误';
+          break;
+        case 403:
+          errorMessage = body['message'] ?? '权限不足，无法访问';
+          break;
+        case 404:
+          errorMessage = body['message'] ?? '请求的资源不存在';
+          break;
+        case 422:
+          errorMessage = body['message'] ?? '数据验证失败';
+          break;
+        case 500:
+          errorMessage = body['message'] ?? '服务器内部错误';
+          break;
+        case 503:
+          errorMessage = body['message'] ?? '服务暂时不可用';
+          break;
+        default:
+          errorMessage = body['message'] ?? '请求失败 (${response.statusCode})';
+      }
+      
+      throw ApiException(errorMessage, statusCode: response.statusCode);
     }
+    
     return body;
   }
 
